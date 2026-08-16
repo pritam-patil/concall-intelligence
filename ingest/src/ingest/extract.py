@@ -156,8 +156,15 @@ def _extract_open_doc(doc, document_id) -> list[dict]:
                 if repeat_counts[_normalize_for_repeat_check(b.text)] >= 2:
                     continue  # rule 2
             kept.append(b.text)
+        # Blocks joined with a BLANK line, not a single "\n": PyMuPDF block
+        # text often contains its own internal line-wraps (a bullet that
+        # wraps across three lines is still one block, one string, with
+        # "\n" between its own visual lines). A single "\n" between blocks
+        # would make an in-block line-wrap indistinguishable from an actual
+        # block boundary — chunk.py's heading detection depends on being
+        # able to tell them apart (see its module docstring).
         rows.append(
-            {"document_id": document_id, "page": page_number + 1, "text": "\n".join(kept)}
+            {"document_id": document_id, "page": page_number + 1, "text": "\n\n".join(kept)}
         )
     return rows
 
