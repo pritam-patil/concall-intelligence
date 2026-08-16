@@ -48,7 +48,7 @@ rearchitecture.
 
 **Decision:** Supabase's free-tier Postgres, with the `pgvector` extension
 for embedding storage and cosine-similarity search via an RPC
-(`match_chunks` — see [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)).
+(`match_chunks` — see [`supabase/migrations/20260816162557_init_schema.sql`](supabase/migrations/20260816162557_init_schema.sql)).
 
 **Why:** One free-tier database serves as both the relational store
 (documents, metadata, symbols, publish dates) and the vector index — no
@@ -177,7 +177,7 @@ those chunks → UI renders the answer with its source citations.
 
 - Both packages must stay pinned to the same embedding model and
   dimensionality (see the `vector(768)` column in
-  [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)) — changing the
+  [`supabase/migrations/20260816162557_init_schema.sql`](supabase/migrations/20260816162557_init_schema.sql)) — changing the
   embedding model requires a migration and a full re-embed, not just a
   config flip.
 - Free-tier rate limits (Cloudflare neurons/day, Gemini requests/day,

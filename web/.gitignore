@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the template, which is meant to be tracked (it was silently
+# dropped by the blanket rule above until this line was added).
+!.env.example
 
 # vercel
 .vercel
