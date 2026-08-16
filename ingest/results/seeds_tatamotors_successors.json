@@ -1,0 +1,341 @@
+{
+  "environment": {
+    "label": "local",
+    "hostname": "Pritams-MacBook-Air.local",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "egress_ip": "103.197.75.44",
+    "measured_at": "2026-08-16T13:24:51.709785+00:00"
+  },
+  "symbols": {
+    "TMCV": {
+      "probe": {
+        "status": 200,
+        "error": null,
+        "row_count": 96
+      },
+      "matches": [
+        {
+          "symbol": "TMCV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TMLCOMMERCIAL_19052026145257_NSEBSE.pdf",
+          "an_dt": "19-May-2026 14:53:26",
+          "seq_id": "106629340"
+        },
+        {
+          "symbol": "TMCV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TMLCOMMERCIAL_03022026175425_NSEBSETRANSCRIPTCV.pdf",
+          "an_dt": "03-Feb-2026 17:54:35",
+          "seq_id": "106518030"
+        },
+        {
+          "symbol": "TMCV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TMLCOMMERCIAL_18112025121111_CVTranscript.pdf",
+          "an_dt": "18-Nov-2025 12:11:21",
+          "seq_id": "106448464"
+        }
+      ]
+    },
+    "TMPV": {
+      "probe": {
+        "status": 200,
+        "error": null,
+        "row_count": 2783
+      },
+      "matches": [
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Passenger Vehicles Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORSSJS_20052026215152_NSEBSETRANSCRIPT.pdf",
+          "an_dt": "20-May-2026 21:52:16",
+          "seq_id": "106632516"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Passenger Vehicles Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORSSJS_11022026205129_NSEBSETRANSCRIPT_signed.pdf",
+          "an_dt": "11-Feb-2026 20:51:37",
+          "seq_id": "106530787"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Passenger Vehicles Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORSSJS_20112025181052_NSEBSETRANSCRIPTPV.pdf",
+          "an_dt": "20-Nov-2025 18:11:12",
+          "seq_id": "106451094"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORSSJS_14082025125734_NSEBSETRANSCRIPT.pdf",
+          "an_dt": "14-Aug-2025 12:58:36",
+          "seq_id": "106341152"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "General Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Integrated Annual Report for the Financial Year 2024-25 and Notice convening the 80th Annual General Meeting of Tata Motors Limited.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORSSJS_24052025003654_NSEBSELETTERANNUALREPORTFINAL.pdf",
+          "an_dt": "24-May-2025 00:46:03",
+          "seq_id": "106246956"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORSSJS_17052025172846_NSEBSELETTER.pdf",
+          "an_dt": "17-May-2025 17:28:59",
+          "seq_id": "106236803"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORSSJS_03022025205131_NSEBSETRANSCRIPT.pdf",
+          "an_dt": "03-Feb-2025 20:52:46",
+          "seq_id": "106135146"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_14112024182552_NSEBSELETTER.pdf",
+          "an_dt": "14-Nov-2024 18:25:52",
+          "seq_id": "106060309"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_07082024183708_NSEBSETRANSCRIPT.pdf",
+          "an_dt": "07-Aug-2024 18:37:08",
+          "seq_id": "105943866"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_16052024170035_NSEBSELETTER.pdf",
+          "an_dt": "16-May-2024 17:00:34",
+          "seq_id": "105849367"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_08022024183102_nsebseletter.pdf",
+          "an_dt": "08-Feb-2024 18:31:02",
+          "seq_id": "105752529"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_08112023190242_nsebseletterfinal.pdf",
+          "an_dt": "08-Nov-2023 19:02:42",
+          "seq_id": "105670037"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_01082023141622_transcript.pdf",
+          "an_dt": "01-Aug-2023 14:16:22",
+          "seq_id": "105572546"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding 'Updated Integrated Annual Report for the Financial Year 2022-23 and Notice convening the 78th AnnualGeneral Meeting'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_27062023200325_NSEBSELETTERFINAL.pdf",
+          "an_dt": "27-Jun-2023 20:03:25",
+          "seq_id": "105540072"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a press release dated Jun 13, 2023, titled \"Tata Motors Limted files Annual report on Form 20F for Fiscal FY 2023\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_13062023164314_20fletter.pdf",
+          "an_dt": "13-Jun-2023 16:43:14",
+          "seq_id": "105529397"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_19052023154824_NSEBSELETTERFINAL.pdf",
+          "an_dt": "19-May-2023 15:48:24",
+          "seq_id": "105502896"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_01022023181148_nsebseletter.pdf",
+          "an_dt": "01-Feb-2023 18:11:48",
+          "seq_id": "105414408"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript of Analysts/Institutional Investor Meet/Con. Call ",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_16112022115906_NSEBSELETTERfinal.pdf",
+          "an_dt": "16-Nov-2022 11:59:06",
+          "seq_id": "5121311"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript of Analysts/Institutional Investor Meet/Con. Call ",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_04082022094542_NSEBSELETTER.pdf",
+          "an_dt": "04-Aug-2022 09:45:42",
+          "seq_id": "5070090"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about press release dated 16-Jun-2022 titled Tata Motors Limited files Annual Report on Form 20-F for Fiscal Year 2022",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_16062022122540_ANNUALREPORT20F.pdf",
+          "an_dt": "16-Jun-2022 12:25:40",
+          "seq_id": "5046924"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript of Analysts/Institutional Investor Meet/Con. Call ",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_18052022182508_LetterNSEBSETranscript.pdf",
+          "an_dt": "18-May-2022 18:25:09",
+          "seq_id": "5031614"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_07022022232221_TataMotorsQ3FY22earningscalltranscript.pdf",
+          "an_dt": "07-Feb-2022 23:22:21",
+          "seq_id": "105232287"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a press release dated Jun 29, 2021, titled \"Tata Motors Limited files Annual Report on Form 20-F for Fiscal Year 2021\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_30062021110523_NSEBSELETTER20F.pdf",
+          "an_dt": "30-Jun-2021 11:05:23",
+          "seq_id": "104974533"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a press release dated August 14, 2020, titled \"Tata Motors Limited files Annual Report on Form 20-F for Fiscal Year 2020\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_14082020225005_NSEBSELETTER2020signed.pdf",
+          "an_dt": "14-Aug-2020 22:50:05",
+          "seq_id": "104462387"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a press release dated July 31, 2019, titled \"Tata Motors Limited files Annual Report on Form 20-F for Fiscal Year 2019\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORSSJS_31072019155530_BSENSEForm20FforFiscalYear2019_206.pdf",
+          "an_dt": "31-Jul-2019 15:56:00",
+          "seq_id": "103694465"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Updates",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding 'Newspaper Advertisement for dispatch of Notice of 74th Annual General Meeting (AGM) alongwith Annual Report and e-voting information'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORSSJS_06072019195207_NSEBSELETTERFINALADVERTISEMENT_098.pdf",
+          "an_dt": "06-Jul-2019 19:52:00",
+          "seq_id": "103635088"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a press release dated August 01, 2018, titled \"Tata Motors Limited files Annual Report on Form 20-F for Fiscal Year 2018\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/BSE-NSE-Form-20F-for-Fiscal-Year-2018_01082018131435_172.zip",
+          "an_dt": "01-Aug-2018 13:14:00",
+          "seq_id": "102835662"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a press release dated July 31, 2017, titled \"Tata Motors Limited files Annual Report on Form 20-F for Fiscal Year 2017\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/BSE-NSE-FilingofAnnualReport-Form20-F-2017_31072017191151_702.zip",
+          "an_dt": "31-Jul-2017 19:11:00",
+          "seq_id": "101993799"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a press release dated July 29, 2016 titled \"Tata Motors Limited files Annual Report on Form 20-F for Fiscal Year 2016\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/BSE-NSE-Form-20-F-for-2016_29072016145931_026.zip",
+          "an_dt": "29-Jul-2016 14:59:00",
+          "seq_id": "100947879"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a Press release dated July 29, 2016 title \"Tata Motors Limited Files Annual Report on Form 20-F for Fiscal Year 2016.\"",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TATAMOTORS_press_29072016144739.zip",
+          "an_dt": "29-Jul-2016 14:47:00",
+          "seq_id": "100947868"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a press release dated July 31, 2015, titled \"Tata Motors  Annual Report in Form 20-F\"..",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Tatamotors_31072015143310.zip",
+          "an_dt": "31-Jul-2015 14:33:00",
+          "seq_id": "100059699"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding press release dated August 1, 2014, tittled \"Tata Motors  Annual Report in Form 20-F\"",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/BSE-NSE-NYSEAnnualReportinForm20F_08042014100801_1.zip",
+          "an_dt": "04-Aug-2014 10:08:00",
+          "seq_id": "1040910"
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a press release dated August 01, 2012, titled \"Tata Motors' Annual Report in Form 20-F\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TataMotors_PR_01082012.zip",
+          "an_dt": "01-Aug-2012 11:18:00",
+          "seq_id": null
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a press release dated August 01, 2011, titled \"Tata Motors' Annual Report in Form 20-F\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TataMotors_pr_01082011.zip",
+          "an_dt": "01-Aug-2011 19:02:00",
+          "seq_id": null
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a Press Release dated September 30, 2010, titled \"Tata Motors' Annual Report in Form 20-F\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/tatamotor_pr_30092010.zip",
+          "an_dt": "30-Sep-2010 15:45:00",
+          "seq_id": null
+        },
+        {
+          "symbol": "TMPV",
+          "desc": "Press Release",
+          "attchmntText": "Tata Motors Limited has informed the Exchange regarding a press release dated October 01, 2008, titled \"Tata Motors' Annual Report in Form 20-F\". A copy of the press release shall be available on the NSE website (http://www.nseindia.com) under: Corporates > Latest Announcements and on the Extranet Server (/Common/Corporate Announcements).<a href=/content/corporate/tatamot_PR_01102008.zip target=NEW> For more details click here.</a>",
+          "attchmntFile": "-",
+          "an_dt": "01-Oct-2008 19:27:00",
+          "seq_id": null
+        }
+      ]
+    }
+  }
+}

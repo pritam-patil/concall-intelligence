@@ -1,0 +1,1127 @@
+{
+  "environment": {
+    "label": "github-actions",
+    "hostname": "runnervmzvulz",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "egress_ip": "172.184.239.226",
+    "measured_at": "2026-08-16T13:32:02.926876+00:00"
+  },
+  "symbols": {
+    "RELIANCE": {
+      "probe": {
+        "status": 200,
+        "error": null,
+        "row_count": 3331
+      },
+      "matches": [
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Transcript of the discussion on the Unaudited Financial Results (Consolidated and Standalone) of the Company for the quarter ended June 30, 2026, at the analyst meet held on July 17, 2026, is attached and also available on the website of the Company.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/kavinavora_19072026180618_SE_Transcript.pdf",
+          "an_dt": "19-Jul-2026 18:06:37",
+          "seq_id": "106702876"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Transcript of the discussion on the Audited Financial Results (Consolidated and Standalone) of the Company for the quarter and year ended March 31, 2026, at the analyst meet held on April 24, 2026, is attached and also available on the website of the Company.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/kavinavora_26042026232750_SE_26042026.pdf",
+          "an_dt": "26-Apr-2026 23:28:02",
+          "seq_id": "106600643"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Transcript of the discussion on the Unaudited Financial Results (Consolidated and Standalone) of the Company for the quarter and nine months ended December 31, 2025, at the analyst meet held on January 16, 2026, is attached and also available on the website of the Company.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/kavinavora_18012026235015_SE_Transcript.pdf",
+          "an_dt": "18-Jan-2026 23:50:41",
+          "seq_id": "106500300"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Transcript of the discussion on the Unaudited Financial Results (Consolidated and Standalone) of the Company for the quarter and half year ended September 30, 2025, at the analyst meet held on October 17, 2025, is attached and also available on the website of the Company.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/kavinavora_19102025225511_SE__Transcripts.pdf",
+          "an_dt": "19-Oct-2025 22:55:29",
+          "seq_id": "106412814"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Transcript of the discussion on the Unaudited Financial Results (Consolidated and Standalone) of the Company for the quarter ended June 30, 2025, at the analyst meet held on July 18, 2025, is attached and also available on the website of the Company.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/kavinavora_20072025132946_SE_20072025.pdf",
+          "an_dt": "20-Jul-2025 13:30:24",
+          "seq_id": "106305646"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange about Transcript and Link of Recording",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/kavinavora_26042025220724_SE_Audioandtranscript.pdf",
+          "an_dt": "26-Apr-2025 22:08:12",
+          "seq_id": "106213141"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange about Transcript and Link of Recording",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/kavinavora_17012025082627_SE_17012025.pdf",
+          "an_dt": "17-Jan-2025 08:26:51",
+          "seq_id": "106116483"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Audio / video recording and transcript of the presentation made to analysts on the Unaudited Financial Results (Consolidated and Standalone) for the quarter and half year ended September 30, 2024.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_15102024082642_SETranscriptAV.pdf",
+          "an_dt": "15-Oct-2024 08:26:42",
+          "seq_id": "106022486"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange about audio / video recording and transcript of the presentation made to analysts on the Unaudited Financial Results (Consolidated and Standalone) for the quarter ended June 30, 2024.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_20072024100219_Transcript.pdf",
+          "an_dt": "20-Jul-2024 10:02:19",
+          "seq_id": "105920443"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange about Audio / Video Recording and Transcript of Presentation made to analysts on Audited Financial Results (Consolidated and Standalone) for the quarter / year ended March 31, 2024.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_23042024065723_AVRandTranscripts23042024.pdf",
+          "an_dt": "23-Apr-2024 06:57:23",
+          "seq_id": "105821965"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange regarding 'Audio / Video Recording and Transcript of Presentation on Unaudited Financial Results (Consolidated and Standalone) for the quarter and nine months ended December 31, 2023'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_20012024082642_TranscriptsandAudioVideoQ32024.pdf",
+          "an_dt": "20-Jan-2024 08:26:42",
+          "seq_id": "105730999"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Pursuant to Regulation 30(6) of the SEBI (Listing Obligations and Disclosure Requirements) Regulations, 2015, the audio / video recording and transcript of the presentation made on January 19, 2024, on Unaudited Financial Results (Consolidated and Standalone) of the Company for the quarter and nine months ended December 31, 2023, is attached and also available on the website of the Company at https://www.ril.com/investors/events-presentations#webcast-sec. The presentation concluded at 9:08 p.m. (IST) on January 19, 2024.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_20012024082342_TranscriptsandAudioVideoQ32024.pdf",
+          "an_dt": "20-Jan-2024 08:23:42",
+          "seq_id": "105730998"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange regarding 'Audio / Video Recording and Transcript of Presentation on UnauditedFinancial Results (Consolidated and Standalone) for the quarter and half year ended September 30, 2023'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_28102023105335_Transcriptsandaudiovideorecording.pdf",
+          "an_dt": "28-Oct-2023 10:53:34",
+          "seq_id": "105656104"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Pursuant to Regulation 30(6) of the SEBI (Listing Obligations and Disclosure Requirements) Regulations, 2015, the audio / video recording and transcript of the presentation made on October 27, 2023, on Unaudited Financial Results (Consolidated and Standalone) of theCompany for the quarter and half-year ended September 30, 2023, is available on the Company s website at https://www.ril.com/InvestorRelations/FinancialReporting.aspx. The said transcript is also attached. The presentation concluded at 9:06 p.m. (IST) on October 27, 2023.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_28102023105029_Transcriptsandaudiovideorecording.pdf",
+          "an_dt": "28-Oct-2023 10:50:29",
+          "seq_id": "105656103"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange regarding 'Audio / Video Recording and Transcript of Presentation on Unaudited Financial Results (Consolidated and Standalone) for the quarter ended June 30, 2023'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_22072023094454_Transcripts22072023.pdf",
+          "an_dt": "22-Jul-2023 09:44:54",
+          "seq_id": "105562876"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange about Transcript and Link of Recording",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_22072023093437_Transcripts22072023.pdf",
+          "an_dt": "22-Jul-2023 09:34:36",
+          "seq_id": "105562875"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange about Presentation and Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_22072023093208_Transcripts22072023.pdf",
+          "an_dt": "22-Jul-2023 09:32:08",
+          "seq_id": "105562874"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange regarding 'Audio / Video Recording and Transcript of Presentation on Audited Financial Results (Consolidated and Standalone) for the quarter / year ended March 31, 2023'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_22042023121128_TranscriptsonAFR.pdf",
+          "an_dt": "22-Apr-2023 12:11:28",
+          "seq_id": "105475703"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Audio / Video Recording and Transcript of Presentation on Audited Financial Results (Consolidated and Standalone) for the quarter / year ended March 31, 2023",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_22042023120923_TranscriptsonAFR.pdf",
+          "an_dt": "22-Apr-2023 12:09:23",
+          "seq_id": "105475702"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange regarding 'Audio / Video Recording and Transcript of Presentation on Unaudited Financial Results (Consolidated and Standalone) for the quarter and nine months ended December 31, 2022'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_21012023112432_TranscriptofPresentationonAFR.pdf",
+          "an_dt": "21-Jan-2023 11:24:32",
+          "seq_id": "105405771"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange about Transcript and Link of Recording",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_21012023105943_TranscriptofPresentationonAFR.pdf",
+          "an_dt": "21-Jan-2023 10:59:43",
+          "seq_id": "105405765"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Recording of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "In continuation of our letter dated October 14, 2022 and pursuant to Regulation 30(6) of the SEBI (Listing Obligations and Disclosure Requirements) Regulations, 2015, the audio / video recording and transcript of the presentation made on October 21, 2022, on Unaudited Financial Results (Consolidated and Standalone) of the Company for the quarter and half-year ended September 30, 2022, is available on the Company\ufffd\ufffd\ufffds website at https://www.ril.com/InvestorRelations/FinancialReporting.aspx. The said transcript is also attached.Kindly take the same on record.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_22102022114751_Transcript.pdf",
+          "an_dt": "22-Oct-2022 11:47:51",
+          "seq_id": "5108140"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Audio / Video Recording and Transcript of Presentation on Unaudited Financial Results (Consolidated and Standalone) for the quarter and half-year ended September 30, 2022",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_22102022114357_Transcript.pdf",
+          "an_dt": "22-Oct-2022 11:43:57",
+          "seq_id": "5108138"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange about Audio / Video Recording and Transcript of Presentation on Unaudited Financial Results (Consolidated and Standalone) for the quarter ended June 30, 2022",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_23072022105339_Transcrip.pdf",
+          "an_dt": "23-Jul-2022 10:53:39",
+          "seq_id": "5063226"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Recording of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange about Audio / Video Recording and Transcript of Presentation on Unaudited Financial Results (Consolidated and Standalone) for the quarter ended June 30, 2022",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_23072022105106_Transcrip.pdf",
+          "an_dt": "23-Jul-2022 10:51:06",
+          "seq_id": "5063225"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange about Audio / Video Recording and Transcript of Presentation on Audited Financial Results (Consolidated and Standalone) for the quarter / year ended March 31, 2022",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_07052022113222_AVRecordingandTranscript.pdf",
+          "an_dt": "07-May-2022 11:32:29",
+          "seq_id": "5026270"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Recording of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange about Audio / Video Recording and Transcript of Presentation on Audited Financial Results (Consolidated and Standalone) for the quarter / year ended March 31, 2022",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_07052022113056_AVRecordingandTranscript.pdf",
+          "an_dt": "07-May-2022 11:30:58",
+          "seq_id": "5026262"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange regarding 'Integrated Annual Report for the financial year 2020-21 including Notice of AnnualGeneral Meeting'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_02062021183802_IntegratedAnnualReport.pdf",
+          "an_dt": "02-Jun-2021 18:38:02",
+          "seq_id": "104933358"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has submitted to the Exchange a Copy of Annual Report for the Financial Year 2016-17.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/SERILAnnualReport2017_30062017083332_459.zip",
+          "an_dt": "30-Jun-2017 08:33:00",
+          "seq_id": "101909650"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Annual General Meeting Updates",
+          "attchmntText": "Reliance Industries Limited has submitted to the Exchange a copy of notice of Annual General Meeting of the members of the Company to be held on September 1, 2016 along with annual report.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/ARuploadonSEs_04082016182205_689.zip",
+          "an_dt": "04-Aug-2016 18:22:00",
+          "seq_id": "100966625"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange that Reliance Industries Ltd Welcomes Appointment of Presiding Arbitrator Hindi transcript of Video Recording and the English Translation thereof - You Tube Upload",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/17YouTube_04022014085201_1.zip",
+          "an_dt": "02-Apr-2014 08:52:00",
+          "seq_id": "843628"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Press Release",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange vide letter dated March 30, 2014 that Reliance Outbids International Oil & Gas Majors : To Bag Two Blocks In Myanmar Hindi transcript of Video Recording and the English Translation thereof",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RelianceOutbidsIntlOGMajors30032014_03312014082002_1.zip",
+          "an_dt": "31-Mar-2014 08:20:00",
+          "seq_id": "840227"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Press Release",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange regarding \" AAP's FIR illegal Dr. Subhash C Kashyap- Hindi transcript of Video Recording and the English Translation thereof \"",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/1_03282014082402_1.zip",
+          "an_dt": "28-Mar-2014 08:24:00",
+          "seq_id": "838079"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has submitted to the Exchange a copy of Hindi transcript of the video recording uploaded by the Company on you tube titled \"Allegations of purchase of land at concessional rates in Gujarat are Baseless\" - Hindi transcript of Video Recording and the English Translation thereof",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/1_03262014180802_1.zip",
+          "an_dt": "26-Mar-2014 18:08:00",
+          "seq_id": "835840"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has submitted to the Exchange vide letter dated March 24, 2014 a copy of Hindi transcript of the Video Recording titled \"Inflation due to gas price hike misconceived\" and the English Translation thereof\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_250320143_03252014082001_1.zip",
+          "an_dt": "25-Mar-2014 08:20:00",
+          "seq_id": "831418"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange vide letter dated March 22, 2014 regarding \"Keep EC Away from Politics of Disinformation-Hindi Transcript of Video Recording and the English Translation thereof\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/RELIANCE_update_24032014_03242014081202_1.zip",
+          "an_dt": "24-Mar-2014 08:12:00",
+          "seq_id": "830054"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange vide letter dated March 21, 2014 regarding \"Allegations of Reliance Gas & Inflation-Hindi Transcript of Video Recording and the English Translation thereof.\"",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/reliance_03212014181602_1.zip",
+          "an_dt": "21-Mar-2014 18:16:00",
+          "seq_id": "829987"
+        },
+        {
+          "symbol": "RELIANCE",
+          "desc": "Updates",
+          "attchmntText": "Reliance Industries Limited has informed the Exchange vide its letter dated March 20, 2014 regarding \"Allegations of benefits from Gujarat Government - Hindi transcript of Video Recording\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/AllegationsofbenefitsfromGujaratGovt_03212014080402_1.zip",
+          "an_dt": "21-Mar-2014 08:04:00",
+          "seq_id": "828025"
+        }
+      ]
+    },
+    "TCS": {
+      "probe": {
+        "status": 200,
+        "error": null,
+        "row_count": 3346
+      },
+      "matches": [
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_CORPCS_15072026193646_SEInt15072026_Signed.pdf",
+          "an_dt": "15-Jul-2026 19:37:13",
+          "seq_id": "106699212"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "General Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about letter sent to Members providing web link of Integrated Annual Report 2025-26.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_CORPCS_18052026200929_SE_Letter_signed.pdf",
+          "an_dt": "18-May-2026 20:09:49",
+          "seq_id": "106628280"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_CORPCS_14042026200132_SEInt14042026_signed.pdf",
+          "an_dt": "14-Apr-2026 20:02:19",
+          "seq_id": "106589580"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_CORPCS_16012026163741_Signed_SEIntimation.pdf",
+          "an_dt": "16-Jan-2026 16:38:43",
+          "seq_id": "106499156"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_CORPCS_23122025195649_Signed_SEInt_letter.pdf",
+          "an_dt": "23-Dec-2025 19:57:28",
+          "seq_id": "106475579"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_CORPCS_04112025165310_SEInt04112025.pdf",
+          "an_dt": "04-Nov-2025 16:54:49",
+          "seq_id": "106426556"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_CORPCS_15102025151659_SE_Intimation_signed.pdf",
+          "an_dt": "15-Oct-2025 15:18:29",
+          "seq_id": "106408403"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_CORPCS_14072025190635_SEint14172025_signed.pdf",
+          "an_dt": "14-Jul-2025 19:08:14",
+          "seq_id": "106299361"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "General Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about letter sent to Members providing web link of Integrated Annual Report 2024-25.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_CORPCS_28052025170000_SE_Letter_Final_signed.pdf",
+          "an_dt": "28-May-2025 17:00:10",
+          "seq_id": "106252313"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_CORPCS_12042025174801_SEInt12042025TRsigned.pdf",
+          "an_dt": "12-Apr-2025 17:48:29",
+          "seq_id": "106201230"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_CORPCS_13012025180506_SEInt13012025signed.pdf",
+          "an_dt": "13-Jan-2025 18:06:54",
+          "seq_id": "106112624"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_14102024190406_SEInt14102024_signed.pdf",
+          "an_dt": "14-Oct-2024 19:04:05",
+          "seq_id": "106022131"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_16072024200301_SEInt16072024Signed.pdf",
+          "an_dt": "16-Jul-2024 20:03:01",
+          "seq_id": "105916447"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_17042024202049_SEInt17042024.pdf",
+          "an_dt": "17-Apr-2024 20:20:49",
+          "seq_id": "105817881"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_16012024204442_SEInt16012024.pdf",
+          "an_dt": "16-Jan-2024 20:44:42",
+          "seq_id": "105727055"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_13102023190220_SEINT13102023Finalsigned.pdf",
+          "an_dt": "13-Oct-2023 19:02:20",
+          "seq_id": "105644078"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_14072023162047_SEINT14072023signed.pdf",
+          "an_dt": "14-Jul-2023 16:20:47",
+          "seq_id": "105555782"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_13042023193823_SEinttranscript13042023signed.pdf",
+          "an_dt": "13-Apr-2023 19:38:23",
+          "seq_id": "105469279"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_11012023214641_SEinttranscript11012023Signed.pdf",
+          "an_dt": "11-Jan-2023 21:46:41",
+          "seq_id": "105398638"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript of Analysts/Institutional Investor Meet/Con. Call ",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_14102022182709_SEinttranscriptsigned.pdf",
+          "an_dt": "14-Oct-2022 18:27:09",
+          "seq_id": "5104762"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript of Analysts/Institutional Investor Meet/Con. Call ",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_13072022184915_SEinttranscript13072022.pdf",
+          "an_dt": "13-Jul-2022 18:49:15",
+          "seq_id": "5058923"
+        },
+        {
+          "symbol": "TCS",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Tata Consultancy Services Limited has informed the Exchange about Transcript of earnings conference call",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TCS_16042022205026_SEIntimation.pdf",
+          "an_dt": "16-Apr-2022 20:50:27",
+          "seq_id": "5019367"
+        }
+      ]
+    },
+    "HDFCBANK": {
+      "probe": {
+        "status": 200,
+        "error": null,
+        "row_count": 2320
+      },
+      "matches": [
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_24072026154746_SEintimationTranscriptofearningscall18jul2026.pdf",
+          "an_dt": "24-Jul-2026 15:52:03",
+          "seq_id": "106709751"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_24042026154113_SEintimationTranscriptofearningscall18April2026.pdf",
+          "an_dt": "24-Apr-2026 15:44:52",
+          "seq_id": "106599476"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_19032026221513_SEintimationTranscriptofearningscall19Mar2026.pdf",
+          "an_dt": "19-Mar-2026 22:16:04",
+          "seq_id": "106561752"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_23012026155630_SEintimationTranscriptofearningscall17_Jan_2026.pdf",
+          "an_dt": "23-Jan-2026 16:00:19",
+          "seq_id": "106506286"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_27102025185000_Transcript.pdf",
+          "an_dt": "27-Oct-2025 18:52:24",
+          "seq_id": "106417068"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_25072025214442_SEintimationTranscriptofearningscall19jul2025Cover.pdf",
+          "an_dt": "25-Jul-2025 21:47:33",
+          "seq_id": "106312737"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_24042025175629_SETranscript19042025.pdf",
+          "an_dt": "24-Apr-2025 17:56:57",
+          "seq_id": "106210859"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_29012025154923_SE_Intimation_Earnings_call.pdf",
+          "an_dt": "29-Jan-2025 15:50:00",
+          "seq_id": "106128739"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about  the Transcript of Earnings Call for the quarter and half year ended September 30, 2024",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_25102024160334_SETranscriptofEarnings19102024.pdf",
+          "an_dt": "25-Oct-2024 16:03:34",
+          "seq_id": "106034901"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_25072024200056_SE_Intimatio_Transcript.pdf",
+          "an_dt": "25-Jul-2024 20:00:56",
+          "seq_id": "105926467"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_26042024171259_SEIntimation_Transcript.pdf",
+          "an_dt": "26-Apr-2024 17:12:59",
+          "seq_id": "105826613"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_23012024125003_SEIntimationTranscriptofearningscall16Jan2024.pdf",
+          "an_dt": "23-Jan-2024 12:50:03",
+          "seq_id": "105732664"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_21102023220738_SEIntimationEarning21102023.pdf",
+          "an_dt": "21-Oct-2023 22:07:38",
+          "seq_id": "105651009"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_22072023140347_SEIntimationTranscript.pdf",
+          "an_dt": "22-Jul-2023 14:03:47",
+          "seq_id": "105562956"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_18042023173957_SEintimation18042023.pdf",
+          "an_dt": "18-Apr-2023 17:39:57",
+          "seq_id": "105471928"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript of Earnings Call for the third quarter and nine months ended December 31, 2022",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_20012023114123_SEintimationEarningscalltranscriptcombined.pdf",
+          "an_dt": "20-Jan-2023 11:41:23",
+          "seq_id": "105404936"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript of Earnings Call for the quarter and half-year ended September 30, 2022",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_21102022162118_SEintimationtranscriptofearningscallsigned.pdf",
+          "an_dt": "21-Oct-2022 16:21:18",
+          "seq_id": "5107683"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript of Analysts/Institutional Investor Meet/Con. Call ",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_21072022162751_SEintimationEarningscalltranscript21072022.pdf",
+          "an_dt": "21-Jul-2022 16:27:51",
+          "seq_id": "5062309"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "desc": "General updates",
+          "attchmntText": "HDFC Bank Limited has informed the Exchange about Transcript of Earnings Call for the quarter and year ended March 31, 2022",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/HDFCBANK_25042022103024_SEIntimationTranscriptQ4FY2022.pdf",
+          "an_dt": "25-Apr-2022 10:30:27",
+          "seq_id": "5021514"
+        }
+      ]
+    },
+    "INFY": {
+      "probe": {
+        "status": 200,
+        "error": null,
+        "row_count": 2912
+      },
+      "matches": [
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Earnings Call Transcript'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_28072026202438_SE_filing_Earnings_call_transcript.pdf",
+          "an_dt": "28-Jul-2026 20:24:53",
+          "seq_id": "106714324"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcript of the 45th Annual General Meeting'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_30062026163341_SE_Infosys_45th_AGM_transcript.pdf",
+          "an_dt": "30-Jun-2026 16:35:29",
+          "seq_id": "106681529"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcripts of the press conference and earnings call conducted after the Meeting ofBoard of directors on April 23, 2026'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_27042026203405_Transcript_April232026_Q4.pdf",
+          "an_dt": "27-Apr-2026 20:36:05",
+          "seq_id": "106601706"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcript of the Infosys Limited Investor AI Day 2026'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_24022026183902_AIDayTranscript17022026.pdf",
+          "an_dt": "24-Feb-2026 18:40:29",
+          "seq_id": "106543706"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Earnings Call Transcript'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_19012026222220_SEfiling_Earningscalltranscript_19012026.pdf",
+          "an_dt": "19-Jan-2026 22:22:39",
+          "seq_id": "106501382"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Earnings Call Transcript'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_21102025214121_SEfiling_Earningscalltranscript_q2.pdf",
+          "an_dt": "21-Oct-2025 21:41:32",
+          "seq_id": "106413674"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Earnings Call Transcript'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_28072025173504_SEfiling_Earningscalltranscript_28072025.pdf",
+          "an_dt": "28-Jul-2025 17:35:16",
+          "seq_id": "106314410"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcript Of The 44th Annual General Meeting Of The Company'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_02072025225219_SEfiling_AGMtranscript_2025.pdf",
+          "an_dt": "02-Jul-2025 22:52:39",
+          "seq_id": "106288289"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Earnings Call Transcript'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_22042025213147_SEfiling_Earningscalltranscript.pdf",
+          "an_dt": "22-Apr-2025 21:32:35",
+          "seq_id": "106208461"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Earnings Call Transcript'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_21012025151633_SEfiling_Earningscalltranscript.pdf",
+          "an_dt": "21-Jan-2025 15:16:47",
+          "seq_id": "106120016"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Earnings Call Transcript'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_22102024201421_SEfiling_Earningscalltranscript.pdf",
+          "an_dt": "22-Oct-2024 20:14:21",
+          "seq_id": "106031027"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Earnings Call Transcript'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_23072024182408_SEfiling_Earningscalltranscript3.pdf",
+          "an_dt": "23-Jul-2024 18:24:08",
+          "seq_id": "105923238"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcript of 43rd AGM '.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_01072024210828_SEfiling_AGMtranscript.pdf",
+          "an_dt": "01-Jul-2024 21:08:28",
+          "seq_id": "105900316"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Earnings Call Transcript'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_23042024204924_SEfiling_Earningscalltranscrip.pdf",
+          "an_dt": "23-Apr-2024 20:49:24",
+          "seq_id": "105822882"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Earnings Call Transcript'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_16012024203743_SEfiling_earningcalltranscript.pdf",
+          "an_dt": "16-Jan-2024 20:37:43",
+          "seq_id": "105727052"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcripts of the press conference and earnings call conducted after the Boardmeeting held on October 12, 2023'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_18102023154444_SEfiling_Earningscalltranscript.pdf",
+          "an_dt": "18-Oct-2023 15:44:44",
+          "seq_id": "105647487"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcripts of the press conference and earnings call conducted after the Meeting ofBoard of directors on July 20, 2023'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_25072023153456_Quarterly_earnings_call_20_07_2023.pdf",
+          "an_dt": "25-Jul-2023 15:34:56",
+          "seq_id": "105565012"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'The transcript of the 42nd Annual General Meeting of the Company held on June 28, 2023.'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_06072023105118_Infy42ndAGMTranscript.pdf",
+          "an_dt": "06-Jul-2023 10:51:18",
+          "seq_id": "105547999"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_18042023205807_Transcripts_April132023.pdf",
+          "an_dt": "18-Apr-2023 20:58:07",
+          "seq_id": "105472086"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_17012023091119_Transcript_Q3.pdf",
+          "an_dt": "17-Jan-2023 09:11:19",
+          "seq_id": "105401989"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Infosys Limited has informed the Exchange about Transcript of Analysts/Institutional Investor Meet/Con. Call ",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_17102022222130_Transcript_Oct132022.pdf",
+          "an_dt": "17-Oct-2022 22:21:30",
+          "seq_id": "5105400"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Board meeting held on July 24, 2022, for your information and records.This information will also be hosted on the Company\ufffd\ufffd\ufffds website, at https://www.infosys.com/investors/reports-filings/quarterly-results/2022-2023/q1.htmlThe audio/video recordings of the press conference and earnings call are also made available on the Company\ufffd\ufffd\ufffds website, at https://www.infosys.com/investors/reports-filings/quarterly-results/2022-2023/q1.html",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_28072022211712_Transcript_Q1_Earningscall.pdf",
+          "an_dt": "28-Jul-2022 21:17:12",
+          "seq_id": "5066083"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "General updates",
+          "attchmntText": "Please find enclosed the transcript of the 41st Annual General Meeting of the Company held on June 25, 2022.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_30062022173327_AGM_Transcipt2022.pdf",
+          "an_dt": "30-Jun-2022 17:33:27",
+          "seq_id": "5053560"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Communication to shareholders as per Reg 30",
+          "attchmntText": "Please find enclosed the press release titled \ufffd\ufffd\ufffdInfosys Annual Report on Form 20-F for fiscal 2022 availableonline for ADS holders\ufffd\ufffd\ufffd and the Form 20-F for the year ended March 31, 2022 filed with SecuritiesExchange Commission, U.S.The Form 20-F will also be made available on Company\ufffd\ufffd\ufffds website at www.infosys.com ",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_17062022233322_Form20F2022_PressRelease.pdf",
+          "an_dt": "17-Jun-2022 23:33:22",
+          "seq_id": "5047577"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Infosys Limited has informed the Exchange about Transcript of Analysts/Institutional Investor Meet/Con. Call ",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_09062022135706_Transcripts.pdf",
+          "an_dt": "09-Jun-2022 13:57:06",
+          "seq_id": "5044569"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Annual General Meeting",
+          "attchmntText": "Infosys Limited has informed the Exchange about Notice of the 41st Annual General Meeting (AGM) and Integrated Annual Report 2021-22.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_26052022085509_InfosysIntegratedAnnualReport202122.pdf",
+          "an_dt": "26-May-2022 08:55:09",
+          "seq_id": "5036311"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Transcript of Analysts/Institutional Investor Meet/Con. Call",
+          "attchmntText": "Infosys Limited has informed the Exchange about Transcript of Analysts/Institutional Investor Meet/Con. Call ",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_19042022181446_Transcripts_INFY.pdf",
+          "an_dt": "19-Apr-2022 18:14:46",
+          "seq_id": "5020033"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange about Transcript",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_17012022200253_Transcripts.pdf",
+          "an_dt": "17-Jan-2022 20:02:53",
+          "seq_id": "105208848"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcripts of the press conference and earnings call conducted after the meeting of board of directors on October 13, 2021'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_18102021184426_INFY_trans.pdf",
+          "an_dt": "18-Oct-2021 18:44:26",
+          "seq_id": "105112609"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcripts of the press conference and earnings call conducted after the meeting of board of directors on July 14, 2021'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_19072021203443_Transcripts_Infy.pdf",
+          "an_dt": "19-Jul-2021 20:34:43",
+          "seq_id": "105000173"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcript of the 40th Annual General Meeting'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_22062021205535_INFY_transcripts_AGM.pdf",
+          "an_dt": "22-Jun-2021 20:55:35",
+          "seq_id": "104962333"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcripts of the press conference and earnings call conducted after the meeting of board of directors on October 14, 2020'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_19102020160349_INFY.pdf",
+          "an_dt": "19-Oct-2020 16:03:49",
+          "seq_id": "104567180"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcript of the 39th Annual General Meeting'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_30062020212814_INFYAGMTranscript.pdf",
+          "an_dt": "30-Jun-2020 21:28:00",
+          "seq_id": "104382196"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Notice of the 39th Annual General Meeting (AGM) and Annual Report 2019-20'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_02062020015426_INFYAR2020.pdf",
+          "an_dt": "02-Jun-2020 01:54:00",
+          "seq_id": "104328966"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcripts of the press conference and earnings call conducted after the meeting of board of directors on October 11, 2019'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_16102019165739_Transcripts_185.pdf",
+          "an_dt": "16-Oct-2019 16:57:00",
+          "seq_id": "103859612"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'the transcripts of the Press Conference and Earnings Call held after the meeting ofthe Board of Directors on July 12, 2019.'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_18072019101558_Transcripts_019.pdf",
+          "an_dt": "18-Jul-2019 10:16:00",
+          "seq_id": "103663992"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcript of the 38th Annual General Meeting'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_27062019194333_transcripts_433.pdf",
+          "an_dt": "27-Jun-2019 19:43:00",
+          "seq_id": "103615061"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Notice of the 38th Annual General Meeting and Annual Report 2018-19'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_18052019004043_Infosys_Annual_Report_FY19_591.pdf",
+          "an_dt": "18-May-2019 00:41:00",
+          "seq_id": "103518394"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding Analysts/Institutional Investor Meet/Con. Call Updates (Transcripts)",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_17012019184659_Transcripts_245.pdf",
+          "an_dt": "17-Jan-2019 18:49:00",
+          "seq_id": "103237449"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Transcript of the Annual General Meeting.'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/TranscAGM_27062018181557_899.zip",
+          "an_dt": "27-Jun-2018 18:15:00",
+          "seq_id": "102751347"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding 'Investor meeting transcript'.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Investormeetingtranscript_07062018093208_464.zip",
+          "an_dt": "07-Jun-2018 09:32:00",
+          "seq_id": "102704361"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has submitted to the Exchange a Copy of  Annual General Meeting transcript.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/infy_28062017165256_487.zip",
+          "an_dt": "28-Jun-2017 16:52:00",
+          "seq_id": "101904539"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Press Release",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding a press release dated Jun 12, 2017, titled \" Infosys Annual Report 2017 Available Onlinefor ADS holders  and the Form 20 F\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_13062017000300_516.zip",
+          "an_dt": "13-Jun-2017 00:03:00",
+          "seq_id": "101862519"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding the transcripts of the Press Conference held on February 13, 2017.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_20022017114857_037.zip",
+          "an_dt": "20-Feb-2017 11:48:00",
+          "seq_id": "101549929"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Infosys Limited has submitted to the Exchange a copy of the transcript of the investor call held on February 14, 2017.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_16022017151903_202.zip",
+          "an_dt": "16-Feb-2017 15:19:00",
+          "seq_id": "101541851"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding transcript of the Investor Summit held on September 15, 2016.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_16092016175200_794.zip",
+          "an_dt": "16-Sep-2016 17:52:00",
+          "seq_id": "101098702"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding the transcripts of the Analyst meet held on August 26, 2016.",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_30082016185501_426.zip",
+          "an_dt": "30-Aug-2016 18:55:00",
+          "seq_id": "101049043"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Press Release",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding a press release dated May 19, 2016, titled \"Infosys Annual Report 2016 Available Online for ADS holders\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_19052016080341_654.zip",
+          "an_dt": "19-May-2016 08:03:00",
+          "seq_id": "100720811"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Press Release",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding a press release dated May 22, 2015  titled \"Infosys Annual Report 2015 Available Online for ADS holders\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/V_press_05222015170801_1.zip",
+          "an_dt": "22-May-2015 17:08:00",
+          "seq_id": "1529907"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Press Release",
+          "attchmntText": "Infosys Limited has submitted to the Exchange a copy of press release dated May 15, 2014 titled \"Infosys annual report 2014 available online for ADS Holders\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFY_PR_15052014_05152014183202_1.zip",
+          "an_dt": "15-May-2014 18:32:00",
+          "seq_id": "904558"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Press Release",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding a press release dated May 20, 2013 titled \"Infosys Annual Report Available Online for ADS Holders\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Pressrelease_05202013170401_1.zip",
+          "an_dt": "20-May-2013 17:04:00",
+          "seq_id": "556570"
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Press Release",
+          "attchmntText": "Infosys Limited has informed the Exchange regarding a press release dated May 14, 2012, titled \"Infosys Annual Report Available Online for ADS Holders\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/infosys_pr_14052012.zip",
+          "an_dt": "14-May-2012 18:15:00",
+          "seq_id": null
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Press Release",
+          "attchmntText": "Infosys Technologies Limited has informed the Exchange regarding a press release dated May 21, 2010, titled \"Infosys Annual Report Available Online for ADS Holders\".",
+          "attchmntFile": "https://nsearchives.nseindia.com/corporate/Infosys_PR_21052010.zip",
+          "an_dt": "21-May-2010 14:15:00",
+          "seq_id": null
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Press Release",
+          "attchmntText": "Infosys Technologies Ltd. has informed the Exchange regarding a press release dated May 15, 2009, titled \"Infosys Annual Report Available Online for ADS Holders\". A copy of the press release shall be available on the NSE website (http://www.nseindia.com) under: Corporates > Latest Announcements and on the Extranet Server (/Common/Corporate Announcements).<a href=/content/corporate/infosys_PR_15052009.ZIP target=NEW> For more details click here.</a>",
+          "attchmntFile": "-",
+          "an_dt": "15-May-2009 17:25:00",
+          "seq_id": null
+        },
+        {
+          "symbol": "INFY",
+          "desc": "Press Release",
+          "attchmntText": "Infosys Technologies Ltd. has informed the Exchange regarding a press release dated May 20, 2008, titled \"Infosys annual report to be available online for ADS holders\". A copy of the press release shall be available on the NSE website (http://www.nseindia.com) under: Corporates > Latest Announcements and on the Extranet Server (/Common/Corporate Announcements).<a href=/content/corporate/Infosys_PR_20052008.zip target=NEW> For more details click here.</a>",
+          "attchmntFile": "-",
+          "an_dt": "20-May-2008 17:02:00",
+          "seq_id": null
+        }
+      ]
+    },
+    "TATAMOTORS": {
+      "probe": {
+        "status": 200,
+        "error": null,
+        "row_count": 0
+      },
+      "matches": []
+    }
+  }
+}

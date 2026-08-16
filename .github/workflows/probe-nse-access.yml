@@ -1,0 +1,28 @@
+name: probe-nse-access
+# Manual only — this is the re-run button for the access findings recorded in
+# SOURCES.md, not part of any regular pipeline. Trigger it if PDF downloads
+# or announcement fetches start failing in production and you need to know
+# whether that's this deploy target's egress or NSE itself.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests
+      - run: python scripts/probe_nse_access.py pdf-access --out results/pdf_access_gha.json --count 10
+      - run: python scripts/probe_nse_access.py seeds --out results/seeds_gha.json
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nse-access-results
+          path: ingest/results/

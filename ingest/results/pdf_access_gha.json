@@ -1,0 +1,106 @@
+{
+  "environment": {
+    "label": "github-actions",
+    "hostname": "runnervmzvulz",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "egress_ip": "172.184.239.226",
+    "measured_at": "2026-08-16T13:31:42.727772+00:00"
+  },
+  "announcements_probe": {
+    "status": 200,
+    "error": null,
+    "row_count": 51
+  },
+  "pdf_downloads": [
+    {
+      "url": "https://nsearchives.nseindia.com/corporate/kavinavora_14082026174801_SE_14082026.pdf",
+      "status": 200,
+      "bytes": 425454,
+      "elapsed_ms": 327.1,
+      "content_type": "application/pdf",
+      "rate_limit_headers": {},
+      "error": null
+    },
+    {
+      "url": "https://nsearchives.nseindia.com/corporate/kavinavora_13082026194059_SE_13082026.pdf",
+      "status": 200,
+      "bytes": 239709,
+      "elapsed_ms": 666.8,
+      "content_type": "application/pdf",
+      "rate_limit_headers": {},
+      "error": null
+    },
+    {
+      "url": "https://nsearchives.nseindia.com/corporate/kavinavora_12082026194133_SE_12082026.pdf",
+      "status": 200,
+      "bytes": 238678,
+      "elapsed_ms": 267.1,
+      "content_type": "application/pdf",
+      "rate_limit_headers": {},
+      "error": null
+    },
+    {
+      "url": "https://nsearchives.nseindia.com/corporate/PVIVINMA_07082026170408_RILSpecialWindowAdvt.pdf",
+      "status": 200,
+      "bytes": 8203644,
+      "elapsed_ms": 330.6,
+      "content_type": "application/pdf",
+      "rate_limit_headers": {},
+      "error": null
+    },
+    {
+      "url": "https://nsearchives.nseindia.com/corporate/kavinavora_07082026164936_Pre_SE_Disclosure_August_2026_Emkay.pdf",
+      "status": 200,
+      "bytes": 239615,
+      "elapsed_ms": 308.5,
+      "content_type": "application/pdf",
+      "rate_limit_headers": {},
+      "error": null
+    },
+    {
+      "url": "https://nsearchives.nseindia.com/corporate/kavinavora_01082026230836_SE_01082026.pdf",
+      "status": 200,
+      "bytes": 230941,
+      "elapsed_ms": 273.3,
+      "content_type": "application/pdf",
+      "rate_limit_headers": {},
+      "error": null
+    },
+    {
+      "url": "https://nsearchives.nseindia.com/corporate/kavinavora_25072026143701_RIL_SELetter_250726.pdf",
+      "status": 200,
+      "bytes": 219210,
+      "elapsed_ms": 390.3,
+      "content_type": "application/pdf",
+      "rate_limit_headers": {},
+      "error": null
+    },
+    {
+      "url": "https://nsearchives.nseindia.com/corporate/PVIVINMA_22072026160927_SENPClipping.pdf",
+      "status": 200,
+      "bytes": 3854675,
+      "elapsed_ms": 1410.0,
+      "content_type": "application/pdf",
+      "rate_limit_headers": {},
+      "error": null
+    },
+    {
+      "url": "https://nsearchives.nseindia.com/corporate/kavinavora_21072026121432_PB_Notice_21072026.pdf",
+      "status": 200,
+      "bytes": 408553,
+      "elapsed_ms": 273.9,
+      "content_type": "application/pdf",
+      "rate_limit_headers": {},
+      "error": null
+    },
+    {
+      "url": "https://nsearchives.nseindia.com/corporate/kavinavora_19072026180618_SE_Transcript.pdf",
+      "status": 200,
+      "bytes": 607452,
+      "elapsed_ms": 268.5,
+      "content_type": "application/pdf",
+      "rate_limit_headers": {},
+      "error": null
+    }
+  ]
+}
