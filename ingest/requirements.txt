@@ -4,7 +4,8 @@ httpx>=0.27
 # httpx — kept as-is, so this is a second, deliberate HTTP client here.
 requests>=2.31
 beautifulsoup4>=4.12
-pypdf>=4.2
+# extract.py's PDF parsing (unused pypdf from the initial scaffold dropped in favor of it).
+pymupdf>=1.24
 supabase>=2.6
 pydantic>=2.7
 python-dotenv>=1.0

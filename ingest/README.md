@@ -23,6 +23,9 @@ pip install -e .   # so `ingest.*` and the `ingest` command are importable/runna
 cp .env.example .env   # then fill in values
 ```
 
+For tests/lint (`pytest`, `ruff`, `mypy`): `uv sync --extra dev`, or plain-pip
+`pip install -e ".[dev]"`.
+
 ## Usage
 
 ```bash
@@ -179,6 +182,57 @@ infrastructure.
   (`PGRST205`). This is the expected, informative failure, not a bug —
   push the schema (this page, above) and it'll run clean.
 
+## Extracting text
+
+`ingest.extract.extract_pdf(path, document_id)` turns one PDF into a list of
+`{"document_id", "page", "text"}` rows (`page` is 1-indexed), via PyMuPDF.
+CLI:
+
+```bash
+uv run python -m ingest.extract --pdf path/to.pdf --document-id <uuid> --out rows.jsonl
+```
+
+Two things it does beyond a bare `page.get_text()`:
+
+- **Two-column layouts.** PyMuPDF's raw block order follows the PDF's
+  drawing order, not visual reading order — on a two-column page that
+  commonly interleaves left/right text mid-sentence. When a page's text
+  blocks split cleanly across the horizontal midline (no block crosses it,
+  and both halves have enough blocks to be confident it's really two
+  columns and not noise), every left-column block is ordered top-to-bottom
+  before any right-column block. Anything else — single column, a table, a
+  block spanning the middle — falls back to a plain top-to-bottom sort.
+- **Header/footer stripping**, heuristic and explicitly imperfect: a short
+  block (a page number, a running title) inside a **fixed-point** margin
+  band at the top/bottom of the page is dropped outright; a longer block in
+  that same band is only dropped if its digit-normalized text repeats
+  across multiple pages of the document (the signature of a running
+  footer, not a heading that happens to sit near a margin on one page). A
+  point margin, not a fraction of page height, is deliberate — see the
+  module docstring for the false positive (a genuine subheading) that an
+  8%-of-height band produced on the real annual-report fixture.
+
+### Tests
+
+```bash
+uv run pytest              # or: .venv/bin/pytest, from ingest/
+```
+
+`tests/fixtures/annual_report_page.pdf` and `transcript_page.pdf` are each
+one real page — not synthesized — cut with PyMuPDF itself from documents
+actually in `seeds.py`: page 37 of INFY's FY2025-26 annual report (a
+genuine two-column bullet list, confirmed via a full-document layout scan
+before picking it — 24 left blocks, 49 right) and page 3 of RELIANCE's
+concall transcript (clean single column, a real repeating-style footer).
+`tests/test_extract.py` asserts real phrases from each land on `page: 1`,
+that a phrase split across a line break within one bullet stays contiguous
+(what breaks if column detection fails), that left-column bullets keep
+their original order ahead of right-column content, and that each page's
+footer is gone from the output. A few additional unit tests cover the two
+heuristics on synthetic input, including one case neither fixture can
+exercise on its own (a single page has no other page to cross-check a
+repeating footer against).
+
 ## Layout
 
 ```
@@ -189,9 +243,13 @@ src/ingest/
   nse_fetch.py           # shared NSE session/probe/fetch — ported verbatim from nse-assist
   seeds.py                # the curated SEED_DOCUMENTS list, transcribed from ../SOURCES.md
   download.py              # downloads seeds.py, hashes, uploads to Storage, records in `documents`
+  extract.py                # per-page PDF -> JSONL text extraction (PyMuPDF)
   providers/
     embeddings.py        # EmbeddingsProvider interface + CloudflareBgeEmbeddings (pinned)
     generation.py         # GenerationProvider interface + GeminiFlashGeneration (pinned)
 scripts/
   probe_nse_access.py    # measures NSE access (PDF downloads, seed URLs) — see ../SOURCES.md
+tests/
+  test_extract.py         # fixture + unit tests for extract.py
+  fixtures/                # two real single PDF pages — see "Extracting text" above
 ```
