@@ -7,7 +7,10 @@ Reads {id, document_id, page, section, content, token_count} rows
 (chunk.py's JSONL shape), embeds `content` in batches through whichever
 EmbeddingsProvider is configured (EMBEDDINGS_PROVIDER — see
 ingest.providers.embeddings), and upserts each row into `chunks` with its
-embedding and embedding_provider set.
+embedding and embedding_provider set. `embed_chunks(chunks)` is the
+reusable core if a caller already has rows in memory (ingest.run does,
+straight from ingest.chunk) — `run(in_path)` is a thin JSONL-reading
+wrapper around it, only for the CLI.
 
 ID BRIDGING. chunk.py's `id` is a sha256 hex string, not a uuid — see its
 own docstring, which explicitly leaves this as "the storage step's
@@ -119,14 +122,18 @@ def upsert_chunks(client, rows: list[dict]) -> None:
     client.table("chunks").upsert(rows, on_conflict="id").execute()
 
 
-def run(in_path: Path) -> dict[str, int]:
+def embed_chunks(chunks: list[dict], *, label: str = "chunks") -> dict[str, int]:
+    """The reusable core: chunk.py-shaped rows (in memory — no JSONL
+    round-trip required) -> embedded and upserted into `chunks`.
+    `run()` below is a thin JSONL-reading wrapper around this; ingest.run
+    (the download -> extract -> chunk -> embed orchestrator) calls this
+    directly with rows it already has in memory, for the same reason."""
     started = time.monotonic()
     settings = get_settings()
     client = get_client(settings)
     provider = get_embeddings_provider(settings)
     provider_name = settings.embeddings_provider
 
-    chunks = read_chunks_jsonl(in_path)
     for c in chunks:
         c["uuid"] = chunk_uuid(c["id"])
 
@@ -134,7 +141,7 @@ def run(in_path: Path) -> dict[str, int]:
     to_embed = [c for c in chunks if c["uuid"] not in skip_ids]
     counts = {"total": len(chunks), "skipped": len(chunks) - len(to_embed), "embedded": 0, "failed": 0}
     print(
-        f"[embed] {in_path}: {counts['total']} chunk(s), "
+        f"[embed] {label}: {counts['total']} chunk(s), "
         f"{counts['skipped']} already embedded ({provider_name}), "
         f"{len(to_embed)} to embed"
     )
@@ -180,6 +187,10 @@ def run(in_path: Path) -> dict[str, int]:
         f"{counts['failed']} failed, out of {counts['total']}, in {elapsed:.1f}s"
     )
     return counts
+
+
+def run(in_path: Path) -> dict[str, int]:
+    return embed_chunks(read_chunks_jsonl(in_path), label=str(in_path))
 
 
 def main(argv=None) -> int:

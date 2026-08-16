@@ -390,6 +390,31 @@ whole `embedding_provider` column exists for — switching
 upsert correctly overwrites each row's `embedding_provider` to `gemini`
 rather than leaving a stale value behind.
 
+## Running the full pipeline
+
+`ingest.run` wires download → extract → chunk → embed together, per
+symbol:
+
+```bash
+uv run ingest run --symbol TCS --symbol INFY
+uv run python -m ingest.run                    # every symbol in ingest.seeds
+```
+
+One symbol's documents all extract/chunk before embedding runs once for
+all of that symbol's chunks together — not once per document — so
+`embed.py`'s batching and pacing operate at the scale they're tuned for.
+A document download resumes as "skipped" (already in `documents`) has no
+bytes attached, so its content comes back out of Storage
+(`download.fetch_from_storage`) rather than hitting NSE again — a re-run
+resumes cleanly end to end, not just at the embed step.
+
+**Run for real, all 6 symbols, 12 documents: 2,833 pages, 3,039 chunks,
+3,039 embedded, 0 failures.** Full results, a chunk-count/avg-token
+breakdown, and a real similarity-search example are in
+[`NOTES.md`](NOTES.md) — including a real Storage-upload bug (`409
+Duplicate`) that run surfaced and the one-line fix (`x-upsert: true` on
+`download.py`'s upload call).
+
 ## Layout
 
 ```
@@ -403,6 +428,7 @@ src/ingest/
   extract.py                # per-page PDF -> JSONL text extraction (PyMuPDF)
   chunk.py                    # page text -> overlapping, sentence-aware chunks
   embed.py                      # batch-embeds chunks, upserts into `chunks` with pgvector
+  run.py                          # wires download -> extract -> chunk -> embed per symbol
   providers/
     embeddings.py        # EmbeddingsProvider interface + CloudflareBgeEmbeddings (pinned), GeminiEmbeddings (fallback)
     generation.py         # GenerationProvider interface + GeminiFlashGeneration (pinned)
@@ -413,4 +439,6 @@ tests/
   test_chunk.py             # sizing/overlap/section/id tests for chunk.py
   test_embed.py              # chunk_uuid + backoff/retry unit tests for embed.py
   fixtures/                # two real single PDF pages — shared by extract/chunk test files
+sanity.sql                 # chunk counts, avg tokens, one similarity query — see NOTES.md for real output
+NOTES.md                     # results from a real, full ingest run across all 6 pilot symbols
 ```

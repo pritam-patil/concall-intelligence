@@ -68,10 +68,10 @@ def ensure_bucket(client) -> None:
             raise
 
 
-def _find_by(client, column: str, value) -> dict | None:
+def find_by(client, column: str, value) -> dict | None:
     result = (
         client.table("documents")
-        .select("id, symbol, doc_type")
+        .select("id, symbol, doc_type, storage_path")
         .eq(column, value)
         .limit(1)
         .execute()
@@ -79,62 +79,109 @@ def _find_by(client, column: str, value) -> dict | None:
     return result.data[0] if result.data else None
 
 
-def ingest_one(session, client, doc: dict) -> str:
+def fetch_from_storage(client, storage_path: str) -> bytes:
+    """The bytes back out of Storage for a document ingest_one() skipped
+    (already in `documents`, so not re-downloaded from NSE) — this is what
+    lets a resumed run.py still extract/chunk/embed a document without
+    hitting NSE again for a file that's already sitting in the bucket.
+    `storage_path` is the full `{bucket}/{object_path}` value stored on the
+    row (see `documents.storage_path`'s column comment); split off the
+    bucket since the Storage API wants them separate."""
+    bucket, _, object_path = storage_path.partition("/")
+    return client.storage.from_(bucket).download(object_path)
+
+
+def ingest_one(session, client, doc: dict) -> dict:
     """Download, dedup-check, upload, and insert one seed document.
 
-    Returns "ingested", "skipped", or "error". Logs exactly one line either
-    way — the summary this function's docstring promises the caller.
+    Returns {"outcome": "ingested"|"skipped"|"error", "document_id",
+    "content", "storage_path"}. `document_id`/`storage_path` are None only
+    for "error". `content` (the raw PDF bytes) is set for "ingested" (just
+    downloaded) and None for "skipped" — a caller that needs the bytes for
+    a skipped document should fetch_from_storage(client, storage_path)
+    instead of re-downloading from NSE for no reason (storage_path is
+    right there in this same return value — no extra query needed). Logs
+    exactly one line either way — the summary this function's docstring
+    promises the caller.
     """
     symbol, doc_type, period = doc["symbol"], doc["doc_type"], doc["period"]
     source_url, nse_seq_id = doc["source_url"], doc["nse_seq_id"]
     label = f"{symbol} {doc_type} seq={nse_seq_id if nse_seq_id is not None else '-'}"
 
     if nse_seq_id is not None:
-        existing = _find_by(client, "nse_seq_id", nse_seq_id)
+        existing = find_by(client, "nse_seq_id", nse_seq_id)
         if existing:
             print(f"[download] {label}: skip (nse_seq_id already in documents, id={existing['id']})")
-            return "skipped"
+            return {
+                "outcome": "skipped",
+                "document_id": existing["id"],
+                "content": None,
+                "storage_path": existing["storage_path"],
+            }
 
     try:
         content, final_url = fetch_binary(session, source_url, referer=_referer_for(doc_type))
     except FetchError as exc:
         print(f"[download] {label}: ERROR — {exc}")
-        return "error"
+        return {"outcome": "error", "document_id": None, "content": None, "storage_path": None}
 
     sha256_hex = hashlib.sha256(content).hexdigest()
 
-    existing = _find_by(client, "sha256", sha256_hex)
+    existing = find_by(client, "sha256", sha256_hex)
     if existing:
         print(
             f"[download] {label}: skip (sha256 already in documents, id={existing['id']}, "
             f"{len(content)} bytes)"
         )
-        return "skipped"
+        return {
+            "outcome": "skipped",
+            "document_id": existing["id"],
+            "content": None,
+            "storage_path": existing["storage_path"],
+        }
 
     object_path = _object_path(symbol, doc_type, final_url)
     storage_path = f"{STORAGE_BUCKET}/{object_path}"
+    # x-upsert: the dedup checks above only rule out a `documents` ROW for
+    # this content — not an orphaned Storage OBJECT at the same path (a
+    # prior run that uploaded but crashed before the insert, for example).
+    # Safe to overwrite rather than error: object_path is derived from
+    # (symbol, doc_type, filename), so a path collision here already means
+    # "the same file", and we're about to write those exact bytes anyway.
     client.storage.from_(STORAGE_BUCKET).upload(
-        object_path, content, file_options={"content-type": "application/pdf"}
+        object_path,
+        content,
+        file_options={"content-type": "application/pdf", "x-upsert": "true"},
     )
 
-    client.table("documents").insert(
-        {
-            "symbol": symbol,
-            "doc_type": doc_type,
-            "period": period,
-            "source_url": source_url,
-            "storage_path": storage_path,
-            "sha256": sha256_hex,
-            "nse_seq_id": nse_seq_id,
-        }
-    ).execute()
+    result = (
+        client.table("documents")
+        .insert(
+            {
+                "symbol": symbol,
+                "doc_type": doc_type,
+                "period": period,
+                "source_url": source_url,
+                "storage_path": storage_path,
+                "sha256": sha256_hex,
+                "nse_seq_id": nse_seq_id,
+            }
+        )
+        .execute()
+    )
+    document_id = result.data[0]["id"]
 
     redirected = "" if final_url == source_url else f", redirected -> {final_url}"
     print(
         f"[download] {label}: ingested — {len(content)} bytes, sha256={sha256_hex[:12]}…, "
         f"{storage_path}{redirected}"
     )
-    return "ingested"
+    return {
+        "outcome": "ingested",
+        "document_id": document_id,
+        "content": content,
+        "storage_path": storage_path,
+    }
 
 
 def run(symbols: list[str] | None = None) -> dict[str, int]:
@@ -152,7 +199,7 @@ def run(symbols: list[str] | None = None) -> dict[str, int]:
     for i, doc in enumerate(docs):
         if i > 0:
             time.sleep(DOWNLOAD_PACE_SECONDS)
-        counts[ingest_one(session, client, doc)] += 1
+        counts[ingest_one(session, client, doc)["outcome"]] += 1
 
     print(
         f"[download] done: {counts['ingested']} ingested, {counts['skipped']} skipped, "
