@@ -1,0 +1,25 @@
+# Env files (never commit real secrets)
+.env
+.env.local
+.env.*.local
+
+# Node / Next.js (web/)
+web/node_modules/
+web/.next/
+web/out/
+web/next-env.d.ts
+web/*.tsbuildinfo
+
+# Python (ingest/)
+ingest/.venv/
+ingest/__pycache__/
+ingest/**/__pycache__/
+ingest/*.egg-info/
+ingest/.pytest_cache/
+ingest/.mypy_cache/
+ingest/.ruff_cache/
+ingest/dist/
+ingest/build/
+
+# OS
+.DS_Store
