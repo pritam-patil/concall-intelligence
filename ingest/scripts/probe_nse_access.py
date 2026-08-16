@@ -46,13 +46,13 @@ import platform
 import socket
 import sys
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from ingest.nse_fetch import (  # noqa: E402
+from ingest.nse_fetch import (
     ANNOUNCEMENTS_REFERER,
     ANNOUNCEMENTS_URL,
     ANNUAL_REPORTS_REFERER,
@@ -61,7 +61,6 @@ from ingest.nse_fetch import (  # noqa: E402
     nse_session,
     probe,
 )
-
 
 # --- environment fingerprint, so two JSON files can be told apart at a glance -
 
@@ -76,7 +75,7 @@ def environment_fingerprint():
         "hostname": socket.gethostname(),
         "platform": platform.platform(),
         "egress_ip": egress_ip,
-        "measured_at": datetime.now(timezone.utc).isoformat(),
+        "measured_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -95,7 +94,7 @@ def sample_attachment_urls(session, count=10, symbol=PDF_SAMPLE_SYMBOL):
     that would fetch and hold all of it for no reason. 90 days is plenty for
     a handful of recent attachments.
     """
-    today = date.today()
+    today = date.today()  # noqa: DTZ011 - a day off machine-local-vs-IST doesn't matter in a 90-day window
     params = {
         "index": "equities",
         "symbol": symbol,

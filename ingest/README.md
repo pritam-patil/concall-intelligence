@@ -23,6 +23,9 @@ pip install -e .   # so `ingest.*` and the `ingest` command are importable/runna
 cp .env.example .env   # then fill in values
 ```
 
+For tests/lint (`pytest`, `ruff`, `mypy`): `uv sync --extra dev`, or plain-pip
+`pip install -e ".[dev]"`.
+
 ## Usage
 
 ```bash
@@ -179,6 +182,130 @@ infrastructure.
   (`PGRST205`). This is the expected, informative failure, not a bug —
   push the schema (this page, above) and it'll run clean.
 
+## Extracting text
+
+`ingest.extract.extract_pdf(path, document_id)` turns one PDF into a list of
+`{"document_id", "page", "text"}` rows (`page` is 1-indexed), via PyMuPDF.
+CLI:
+
+```bash
+uv run python -m ingest.extract --pdf path/to.pdf --document-id <uuid> --out rows.jsonl
+```
+
+Two things it does beyond a bare `page.get_text()`:
+
+- **Two-column layouts.** PyMuPDF's raw block order follows the PDF's
+  drawing order, not visual reading order — on a two-column page that
+  commonly interleaves left/right text mid-sentence. When a page's text
+  blocks split cleanly across the horizontal midline (no block crosses it,
+  and both halves have enough blocks to be confident it's really two
+  columns and not noise), every left-column block is ordered top-to-bottom
+  before any right-column block. Anything else — single column, a table, a
+  block spanning the middle — falls back to a plain top-to-bottom sort.
+- **Header/footer stripping**, heuristic and explicitly imperfect: a short
+  block (a page number, a running title) inside a **fixed-point** margin
+  band at the top/bottom of the page is dropped outright; a longer block in
+  that same band is only dropped if its digit-normalized text repeats
+  across multiple pages of the document (the signature of a running
+  footer, not a heading that happens to sit near a margin on one page). A
+  point margin, not a fraction of page height, is deliberate — see the
+  module docstring for the false positive (a genuine subheading) that an
+  8%-of-height band produced on the real annual-report fixture.
+
+Kept blocks are joined with a **blank line** between them, not a single
+`\n` — a PyMuPDF block's own text often has internal line-wraps (a bullet
+wrapping across three lines is one block, one string, with plain `\n`
+between its own visual lines), so a single `\n` between blocks would make
+an in-block wrap indistinguishable from an actual block boundary.
+`ingest.chunk`'s section/heading detection depends on telling the two
+apart — see [Chunking text](#chunking-text) below.
+
+(The real annual-report fixture turned out to be a two-printed-page
+spread rendered as one wide landscape PDF page — page 36 on the left half,
+page 37 on the right, each with its own footer at the same height. Fine
+either way: the two-column heuristic doesn't know or care whether the
+left/right split it's ordering is one article's two columns or two
+separate printed pages side by side — it's the same problem, and both
+footers get stripped the same way either half they're on.)
+
+### Tests
+
+```bash
+uv run pytest              # or: .venv/bin/pytest, from ingest/
+```
+
+`tests/fixtures/annual_report_page.pdf` and `transcript_page.pdf` are each
+one real page — not synthesized — cut with PyMuPDF itself from documents
+actually in `seeds.py`: page 37 of INFY's FY2025-26 annual report (a
+genuine two-column bullet list, confirmed via a full-document layout scan
+before picking it — 24 left blocks, 49 right) and page 3 of RELIANCE's
+concall transcript (clean single column, a real repeating-style footer).
+`tests/test_extract.py` asserts real phrases from each land on `page: 1`,
+that a phrase split across a line break within one bullet stays contiguous
+(what breaks if column detection fails), that left-column bullets keep
+their original order ahead of right-column content, and that each page's
+footer is gone from the output. A few additional unit tests cover the two
+heuristics on synthetic input, including one case neither fixture can
+exercise on its own (a single page has no other page to cross-check a
+repeating footer against).
+
+## Chunking text
+
+`ingest.chunk.chunk_page(document_id, page, text)` splits one page's text
+(`extract.py`'s output) into overlapping chunks:
+`{id, document_id, page, section, content, token_count}` — everything
+`chunks` (`supabase/migrations/`) needs except `embedding`, added later by
+a separate embed step. CLI, reading `extract.py`'s JSONL and writing
+chunk rows:
+
+```bash
+uv run python -m ingest.chunk --in pages.jsonl --out chunks.jsonl
+```
+
+- **Target size ~800 tokens, ~100-token overlap.** "Token" is a plain
+  whitespace word count, not either embeddings provider's real tokenizer —
+  a sizing heuristic only has to hit "~800", not an exact limit, and a real
+  tokenizer (tiktoken's vocab files come from a CDN on first use) is
+  unwarranted for that. Chunks accumulate whole sentences up to the
+  target; overlap re-includes whichever trailing sentences of a chunk sum
+  to at least 100 tokens as the start of the next one, so overlap is
+  always a round number of complete sentences too.
+- **Never splits mid-sentence, except when a single sentence alone is
+  bigger than the target** — at that point there's no non-mid-sentence
+  option left, and the chunk runs long rather than truncate it. Sentence
+  splitting is a regex boundary detector plus a small abbreviation guard
+  list (`Rs.`, `Mr.`, `Ltd.`, ...) — not a statistical model.
+- **`section`** is the nearest heading-shaped block at or before a chunk's
+  start: short, no bullet marker, no sentence-terminal punctuation. This
+  is exactly why `extract.py` joins blocks with a blank line rather than a
+  single `\n` (above) — without that, a long bullet's own line-wrap could
+  look like a short standalone heading. Still a text-only heuristic with a
+  real ceiling: it has no way to tell a genuine section title apart from a
+  pull-quote or graphic caption that happens to read the same way in plain
+  text.
+- **`id`** is `sha256(f"{document_id}|{page}|{offset}")` — deterministic
+  by construction (same inputs, same id, forever) and specifically
+  sensitive to `offset`, so a change to the accumulation logic that shifts
+  where chunks start changes their ids too, rather than silently keeping
+  stale ids pointing at different content. It's a plain sha256 hex string,
+  not the `chunks.id uuid` column's shape — reconciling the two (e.g. as
+  an idempotency key on insert) is the storage step's problem, not this
+  module's.
+
+### Tests
+
+`tests/test_chunk.py` — sizing/overlap/id tests run against synthetic text
+with a fixed, known token count per sentence (precise and fast, and
+doesn't depend on any fixture's wording holding still): every chunk at or
+under the target, non-final chunks landing close to it rather than
+stopping early, a single oversized sentence staying whole in a one-chunk
+result, consecutive chunks sharing a real trailing/leading run of whole
+sentences worth at least 100 tokens, and `chunk_id` matching a hardcoded
+expected hash (not just "equal to itself twice" — that alone wouldn't
+catch a refactor that changes the hash *input format* but stays internally
+consistent). Section detection is checked both on a clean synthetic
+example and against the two real fixtures shared with `test_extract.py`.
+
 ## Layout
 
 ```
@@ -189,9 +316,15 @@ src/ingest/
   nse_fetch.py           # shared NSE session/probe/fetch — ported verbatim from nse-assist
   seeds.py                # the curated SEED_DOCUMENTS list, transcribed from ../SOURCES.md
   download.py              # downloads seeds.py, hashes, uploads to Storage, records in `documents`
+  extract.py                # per-page PDF -> JSONL text extraction (PyMuPDF)
+  chunk.py                    # page text -> overlapping, sentence-aware chunks
   providers/
     embeddings.py        # EmbeddingsProvider interface + CloudflareBgeEmbeddings (pinned)
     generation.py         # GenerationProvider interface + GeminiFlashGeneration (pinned)
 scripts/
   probe_nse_access.py    # measures NSE access (PDF downloads, seed URLs) — see ../SOURCES.md
+tests/
+  test_extract.py         # fixture + unit tests for extract.py
+  test_chunk.py             # sizing/overlap/section/id tests for chunk.py
+  fixtures/                # two real single PDF pages — shared by both test files
 ```

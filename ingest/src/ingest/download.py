@@ -62,7 +62,7 @@ def ensure_bucket(client) -> None:
     PDFs feed the ingestion/retrieval pipeline, not a public asset."""
     try:
         client.storage.create_bucket(STORAGE_BUCKET, options={"public": False})
-    except Exception as exc:  # noqa: BLE001 - storage3 raises a plain StorageException
+    except Exception as exc:
         message = str(exc).lower()
         if "already exists" not in message and "duplicate" not in message:
             raise

@@ -42,7 +42,7 @@ class Settings:
     nse_base_url: str
 
     @classmethod
-    def load(cls) -> "Settings":
+    def load(cls) -> Settings:
         return cls(
             supabase_url=_require("SUPABASE_URL"),
             supabase_service_role_key=_require("SUPABASE_SERVICE_ROLE_KEY"),
