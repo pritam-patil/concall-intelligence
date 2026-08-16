@@ -71,11 +71,11 @@ measured. Re-probe (`python ingest/scripts/probe_nse_access.py pdf-access`)
 if downloads start failing in production — access here is empirically not
 guaranteed to stay this permissive.
 
-**Note on the throwaway repo:** `gh repo delete` failed — the local `gh`
-token lacks the `delete_repo` scope, and granting it needs an interactive
-browser step this session won't do unattended. The private repo
+**Note on the throwaway repo:** the private repo
 `pritam-patil/nse-pdf-access-probe-throwaway` (script + workflow + one
-completed run, no secrets) is still on GitHub pending manual deletion.
+completed run, no secrets) was created for this probe, used, and deleted —
+`gh repo delete` initially failed for lack of the `delete_repo` token scope;
+after the scope was added, the repo was deleted and its absence confirmed.
 
 ## 2. Seeds — per-symbol full-history announcements
 
