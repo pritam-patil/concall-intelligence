@@ -17,18 +17,20 @@
      filtered to rows that look like transcripts or annual reports, as
      candidate ingestion sources for SOURCES.md.
 
-Session/probe pattern is reused VERBATIM from nse-assist/data/upcoming.py:
-  - nse_session() primes cookies by loading a section page first (the nsit
-    cookie the API/archive hosts require — the bare homepage now 403s).
-  - probe() sends Accept-Encoding: gzip, deflate explicitly — offering br lets
-    NSE answer brotli-compressed and requests can't decode that without an
-    extra package, so the response looks like a 200 with binary garbage.
-  - An unprimed session gets 200 with an EMPTY body, not an error status;
-    probe() treats that as a failure and retries once.
+Session/probe pattern lives in ingest.nse_fetch (ingest/src/ingest/nse_fetch.py)
+— nse_session()/probe(), ported VERBATIM from nse-assist/data/upcoming.py, now
+shared with download.py so the two can't drift apart the way this script's own
+copy did the moment nse_fetch.py was written. See that module's docstring for
+why each behavior (section-page priming, explicit gzip/deflate, the
+empty-body-200 retry) is there.
 
-Only dependency: requests. Every failure mode is recorded, never worked
-around — no CAPTCHA solving, no header spoofing beyond an ordinary browser's,
-no retry storms against a host that's said no.
+Only third-party dependency: requests (ingest.nse_fetch has no others either).
+This script does not require the ingest package to be installed — it locates
+its source directory directly, so `python scripts/probe_nse_access.py ...`
+keeps working from a bare `pip install requests` environment, matching how
+.github/workflows/probe-nse-access.yml runs it. Every failure mode is
+recorded, never worked around — no CAPTCHA solving, no header spoofing beyond
+an ordinary browser's, no retry storms against a host that's said no.
 
     python probe_nse_access.py pdf-access --out results/pdf_access_local.json
     python probe_nse_access.py seeds --out results/seeds.json
@@ -42,69 +44,23 @@ import json
 import os
 import platform
 import socket
+import sys
 import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
 
-# --- verbatim from nse-assist/src/ingest.py (BROWSER_HEADERS) and
-#     nse-assist/data/upcoming.py (nse_session, probe) ------------------------
-
-BROWSER_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1",
-}
-
-REQUEST_TIMEOUT_SECONDS = 20
-PRIME_URL = "https://www.nseindia.com/companies-listing/corporate-filings-announcements"
-ANNOUNCEMENTS_URL = "https://www.nseindia.com/api/corporate-announcements"
-ANNOUNCEMENTS_REFERER = PRIME_URL
-ANNUAL_REPORTS_URL = "https://www.nseindia.com/api/annual-reports"
-ANNUAL_REPORTS_REFERER = "https://www.nseindia.com/companies-listing/corporate-filings-annual-reports"
-
-
-def nse_session():
-    session = requests.Session()
-    session.headers.update(BROWSER_HEADERS)
-    session.get(PRIME_URL, timeout=REQUEST_TIMEOUT_SECONDS)
-    return session
-
-
-def probe(session, name, url, params, referer):
-    """{name, status, rows, error}. Empty-body 200s count as failures and get
-    one retry — that is NSE's way of saying the cookies did not take."""
-    headers = {"Accept": "application/json", "Accept-Encoding": "gzip, deflate",
-               "Referer": referer}
-    outcome = {"name": name, "status": None, "rows": None, "error": None}
-    for attempt in (1, 2):
-        try:
-            response = session.get(url, params=params, headers=headers,
-                                    timeout=REQUEST_TIMEOUT_SECONDS)
-        except requests.RequestException as exc:
-            outcome["error"] = str(exc)
-            continue
-        outcome["status"] = response.status_code
-        if not response.ok or not response.text.strip():
-            outcome["error"] = (f"HTTP {response.status_code}"
-                                 if not response.ok else "empty body")
-            continue
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            outcome["error"] = f"not JSON ({exc})"
-            continue
-        outcome["rows"] = payload if isinstance(payload, list) else payload.get("data", [])
-        outcome["error"] = None
-        break
-    return outcome
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from ingest.nse_fetch import (  # noqa: E402
+    ANNOUNCEMENTS_REFERER,
+    ANNOUNCEMENTS_URL,
+    ANNUAL_REPORTS_REFERER,
+    ANNUAL_REPORTS_URL,
+    REQUEST_TIMEOUT_SECONDS,
+    nse_session,
+    probe,
+)
 
 
 # --- environment fingerprint, so two JSON files can be told apart at a glance -

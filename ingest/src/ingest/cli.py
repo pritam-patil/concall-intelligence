@@ -31,5 +31,24 @@ def transcripts(symbol: str) -> None:
     click.echo(f"[stub] would fetch transcripts for {symbol}")
 
 
+@main.command()
+@click.option(
+    "--symbol",
+    "symbols",
+    multiple=True,
+    help="Limit to this symbol; repeatable. Default: every symbol in ingest.seeds.",
+)
+def download(symbols: tuple[str, ...]) -> None:
+    """Download the curated seed documents (ingest.seeds), hash, upload to
+    Storage, and record them in `documents`. Not the same as filings/
+    transcripts above — those are for live discovery (not yet built); this
+    ingests the fixed, hand-picked set documented in SOURCES.md."""
+    from ingest.download import run
+
+    counts = run(symbols=list(symbols) or None)
+    if counts["error"]:
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
     main()

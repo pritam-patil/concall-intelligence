@@ -19,6 +19,7 @@ Or with plain pip:
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install -e .   # so `ingest.*` and the `ingest` command are importable/runnable
 cp .env.example .env   # then fill in values
 ```
 
@@ -28,7 +29,15 @@ cp .env.example .env   # then fill in values
 uv run ingest --help
 uv run ingest filings --symbol TCS
 uv run ingest transcripts --symbol TCS
+uv run ingest download                     # every seed document in ingest/seeds.py
+uv run ingest download --symbol TCS --symbol INFY   # just these
 ```
+
+`filings`/`transcripts` are stubs for live discovery (not built yet — they'd
+call the same announcements/annual-reports APIs `scripts/probe_nse_access.py`
+already probes). `download` is real: it ingests the fixed, curated document
+list in [`src/ingest/seeds.py`](src/ingest/seeds.py) — see
+[Downloading documents](#downloading-documents) below.
 
 ## Connecting to Supabase
 
@@ -113,13 +122,73 @@ constraint on `nse_seq_id`. What was **not** run is `supabase link` /
 and DB password from step 2, which this environment doesn't have. Treat the
 SQL as tested, not the live deploy.
 
+This is also why `download` (below) fails against the real project today —
+it needs `documents` to exist, and step 3 hasn't been run there yet.
+
+## Downloading documents
+
+`ingest download` walks [`src/ingest/seeds.py`](src/ingest/seeds.py) (the
+curated list transcribed from [`../SOURCES.md`](../SOURCES.md) — six recent
+concall transcripts, six FY2025-26 annual reports), and for each one:
+
+1. If the seed carries an `nse_seq_id` (concall entries do; annual reports
+   don't — NSE's `/api/annual-reports` feed has no such field), checks
+   `documents.nse_seq_id` first and skips the download entirely on a hit.
+2. Downloads the PDF through a primed session (`ingest.nse_fetch` —
+   section-page cookie priming, `Accept-Encoding: gzip, deflate`, a
+   browser-like User-Agent, redirects followed) and computes its sha256.
+3. Checks `documents.sha256` and skips (no upload, no insert) on a hit —
+   this is what catches annual reports (no seq_id to pre-check) on a re-run,
+   and guards against the same bytes appearing at a different URL.
+4. Otherwise uploads the original to the `filings` Storage bucket at
+   `{symbol}/{doc_type}/{filename}` and inserts a `documents` row —
+   `nse_seq_id` set for concall entries, null for annual reports.
+
+One line is logged per document either way — `ingested`, `skip (...)`, or
+`ERROR — ...`. Requests are paced `DOWNLOAD_PACE_SECONDS` (1.5s) apart —
+see `ingest.nse_fetch` for why: no rate-limiting was observed toward
+`nsearchives.nseindia.com` at that pace in SOURCES.md §1, and downloading
+more files isn't a reason to push harder against someone else's free
+infrastructure.
+
+**Verified for real**, in two halves, since the live project doesn't have
+`documents` yet (see above):
+
+- **Storage half, against the real hosted project**: `ensure_bucket()` and
+  a real `.upload()` were both run for real — the `filings` bucket exists
+  (private) on the live project, and one real seed document (RELIANCE's
+  concall transcript, a genuine live download) is sitting in it at
+  `filings/RELIANCE/concall/kavinavora_19072026180618_SE_Transcript.pdf`,
+  confirmed present via the Storage API afterward. This is real seed data
+  now, not test pollution — it wasn't cleaned up.
+- **Database half, against a local stand-in**: since bare PostgREST (a
+  single downloadable binary — no Docker needed) is the same REST layer
+  `supabase-py`'s `.table()` calls speak, it was pointed at a local scratch
+  Postgres with the migration and seed applied, and `ingest_one()` was run
+  against it for real (real NSE downloads, real inserts) with only
+  `.storage` swapped for a recording fake. Confirmed: a new document
+  ingests correctly; a re-run with the same `nse_seq_id` skips without
+  downloading; a same-content document under a different `nse_seq_id`
+  skips via `sha256` instead; an annual-report-shaped doc (no seq_id)
+  ingests and then correctly dedupes by `sha256` alone on a second run; a
+  404 URL returns `"error"` without uploading or inserting anything.
+- **Against the actual hosted project**: running `ingest download --symbol
+  RELIANCE` for real does exactly what step 3 above predicts — the bucket
+  step succeeds, then it fails immediately on the first document with
+  `Could not find the table 'public.documents' in the schema cache`
+  (`PGRST205`). This is the expected, informative failure, not a bug —
+  push the schema (this page, above) and it'll run clean.
+
 ## Layout
 
 ```
 src/ingest/
   config.py            # env-backed Settings, loaded once via get_settings()
-  cli.py                # `ingest` command group (click)
+  cli.py                # `ingest` command group (click) — filings/transcripts (stubs), download
   db.py                 # Supabase client
+  nse_fetch.py           # shared NSE session/probe/fetch — ported verbatim from nse-assist
+  seeds.py                # the curated SEED_DOCUMENTS list, transcribed from ../SOURCES.md
+  download.py              # downloads seeds.py, hashes, uploads to Storage, records in `documents`
   providers/
     embeddings.py        # EmbeddingsProvider interface + CloudflareBgeEmbeddings (pinned)
     generation.py         # GenerationProvider interface + GeminiFlashGeneration (pinned)

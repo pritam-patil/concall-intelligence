@@ -6,6 +6,10 @@ requires-python = ">=3.11,<3.12"
 readme = "README.md"
 dependencies = [
     "httpx>=0.27",
+    # nse_fetch.py's session/probe pattern is ported verbatim from nse-assist,
+    # which is written against requests, not httpx — kept as-is rather than
+    # rewritten, so requests is a second, deliberate HTTP client here.
+    "requests>=2.31",
     "beautifulsoup4>=4.12",
     "pypdf>=4.2",
     "supabase>=2.6",
