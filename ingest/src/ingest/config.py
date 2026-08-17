@@ -32,6 +32,10 @@ class Settings:
     cf_account_id: str | None
     cf_api_token: str | None
     cf_embeddings_model: str
+    # Fallback embeddings provider — same GEMINI_API_KEY as generation, but
+    # a distinct model: embedding and text-generation are different model
+    # families, "gemini-2.0-flash" (generation_model, below) doesn't embed.
+    gemini_embeddings_model: str
 
     # Generation provider (see ingest.providers.generation). Default: Gemini Flash free tier.
     generation_provider: str
@@ -51,6 +55,9 @@ class Settings:
             cf_api_token=os.environ.get("CLOUDFLARE_API_TOKEN"),
             cf_embeddings_model=os.environ.get(
                 "CLOUDFLARE_EMBEDDINGS_MODEL", "@cf/baai/bge-base-en-v1.5"
+            ),
+            gemini_embeddings_model=os.environ.get(
+                "GEMINI_EMBEDDINGS_MODEL", "gemini-embedding-001"
             ),
             generation_provider=os.environ.get("GENERATION_PROVIDER", "gemini_flash"),
             gemini_api_key=os.environ.get("GEMINI_API_KEY"),

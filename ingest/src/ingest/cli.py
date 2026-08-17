@@ -50,5 +50,23 @@ def download(symbols: tuple[str, ...]) -> None:
         raise SystemExit(1)
 
 
+@main.command()
+@click.option(
+    "--symbol",
+    "symbols",
+    multiple=True,
+    help="Limit to this symbol; repeatable. Default: every symbol in ingest.seeds.",
+)
+def run(symbols: tuple[str, ...]) -> None:
+    """Full pipeline for SYMBOL(s): download -> extract -> chunk -> embed.
+    See ingest/src/ingest/run.py's module docstring for how the stages
+    connect and how a re-run resumes."""
+    from ingest.run import run as run_pipeline
+
+    results = run_pipeline(symbols=list(symbols) or None)
+    if any(r["download_errors"] or r["embed"]["failed"] for r in results.values()):
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
     main()

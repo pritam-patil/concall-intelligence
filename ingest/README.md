@@ -306,6 +306,115 @@ catch a refactor that changes the hash *input format* but stays internally
 consistent). Section detection is checked both on a clean synthetic
 example and against the two real fixtures shared with `test_extract.py`.
 
+## Embedding
+
+`ingest.embed.run(chunks_jsonl_path)` reads `chunk.py`'s JSONL, embeds each
+chunk's `content` through whichever `EmbeddingsProvider` is configured
+(`EMBEDDINGS_PROVIDER` — `cloudflare_bge`, pinned default, or `gemini`,
+fallback — see `ingest/providers/embeddings.py`), and upserts each row into
+`chunks` with its embedding and `embedding_provider` set:
+
+```bash
+uv run python -m ingest.embed --in chunks.jsonl
+```
+
+- **ID bridging.** `chunk.py`'s `id` is a sha256 hex string, not the
+  `chunks.id uuid` column's shape — its own docstring calls this "the
+  storage step's problem." `chunk_uuid()` here is that step: a `uuid5`
+  (name-based, spec-compliant, not a truncate-the-hash hack) deterministic
+  mapping from the hex string, so the same chunk always upserts to the
+  same row.
+- **Resumable.** Before embedding anything, every chunk's mapped uuid is
+  checked against the DB in one query: already has a non-null embedding
+  from the CURRENTLY CONFIGURED provider → skip, no API call spent.
+  Embedded by a *different* provider is deliberately not treated as
+  done — a Cloudflare bge vector and a Gemini vector aren't comparable by
+  cosine distance even though both are `vector(768)`, so silently
+  skipping would leave a chunk's embedding in the wrong vector space with
+  no record that anything was wrong. This is exactly what the
+  `chunks.embedding_provider` migration exists for. A crashed or
+  Ctrl-C'd run can just be re-run — whatever's already landed is skipped,
+  the rest picks up where it left off.
+- **Rate limits, two layers.** Each provider's own `embed()` call already
+  retries itself (tenacity, 3 attempts). Above that, `embed.py` retries a
+  whole BATCH if it still fails after the provider's internal retries are
+  exhausted (`MAX_BATCH_RETRIES`, doubling backoff) — a batch still
+  failing after that is logged and counted as failed, and the run moves
+  on rather than aborting. Batches are also paced `EMBED_PACE_SECONDS`
+  apart regardless of outcome, matching the courtesy-pacing pattern in
+  `ingest.nse_fetch`.
+- **`EMBED_BATCH_SIZE = 50`** — confirmed working up to 150 texts in one
+  call against Cloudflare during testing; 50 is a comfortable margin
+  below that, not the actual ceiling (which wasn't pinned down further —
+  no reason to keep spending free-tier quota just to find an exact
+  number nothing depends on).
+
+### The Gemini fallback is a config flip, not automatic failover
+
+Switching providers means setting `EMBEDDINGS_PROVIDER=gemini` and
+re-running `ingest.embed` — not something this module decides mid-run.
+Two things confirmed by calling the real endpoint while building this,
+not assumed from docs:
+
+- `gemini-embedding-001`'s native output is 3072-dim; getting 768 (to
+  match bge and `vector(768)`) means requesting `outputDimensionality:
+  768` explicitly — it's Matryoshka truncation of the same model, not a
+  separate smaller one.
+- Truncated output is NOT unit-normalized (~0.58 observed, vs. bge's
+  ~1.0) — `GeminiEmbeddings.embed()` renormalizes before returning.
+  Cosine distance (what `match_chunks` uses) is scale-invariant, so this
+  wouldn't have broken search either way, but there's no reason to leave
+  a vector at a norm that doesn't mean anything.
+
+### Tests
+
+`tests/test_embed.py` covers what's cleanly unit-testable without live
+infrastructure: `chunk_uuid` determinism (including a hardcoded expected
+value, the same reasoning as `chunk_id`'s test — catches a namespace-
+constant change that would silently remap every existing row), and the
+batch backoff/retry logic (a fake provider that fails N times then
+succeeds, checked against mocked `time.sleep` calls rather than real
+wall-clock delays).
+
+**The DB upsert and resumability logic was verified for real instead**,
+the same way `download.py`'s was: both migrations (baseline +
+`embedding_provider`) applied to a local scratch Postgres, a standalone
+PostgREST instance in front of it, and `embed.run()` executed against
+that — with REAL Cloudflare and Gemini API calls, not mocked embeddings.
+Confirmed: a fresh run embeds and upserts correctly (right uuid, right
+`embedding_provider`, 768-dim vector stored); a second run against the
+same input skips every chunk (0 embedded, 3 skipped); and — the case the
+whole `embedding_provider` column exists for — switching
+`EMBEDDINGS_PROVIDER` to `gemini` against chunks already embedded by
+`cloudflare_bge` does NOT skip them (0 skipped, 3 re-embedded), and the
+upsert correctly overwrites each row's `embedding_provider` to `gemini`
+rather than leaving a stale value behind.
+
+## Running the full pipeline
+
+`ingest.run` wires download → extract → chunk → embed together, per
+symbol:
+
+```bash
+uv run ingest run --symbol TCS --symbol INFY
+uv run python -m ingest.run                    # every symbol in ingest.seeds
+```
+
+One symbol's documents all extract/chunk before embedding runs once for
+all of that symbol's chunks together — not once per document — so
+`embed.py`'s batching and pacing operate at the scale they're tuned for.
+A document download resumes as "skipped" (already in `documents`) has no
+bytes attached, so its content comes back out of Storage
+(`download.fetch_from_storage`) rather than hitting NSE again — a re-run
+resumes cleanly end to end, not just at the embed step.
+
+**Run for real, all 6 symbols, 12 documents: 2,833 pages, 3,039 chunks,
+3,039 embedded, 0 failures.** Full results, a chunk-count/avg-token
+breakdown, and a real similarity-search example are in
+[`NOTES.md`](NOTES.md) — including a real Storage-upload bug (`409
+Duplicate`) that run surfaced and the one-line fix (`x-upsert: true` on
+`download.py`'s upload call).
+
 ## Layout
 
 ```
@@ -318,13 +427,18 @@ src/ingest/
   download.py              # downloads seeds.py, hashes, uploads to Storage, records in `documents`
   extract.py                # per-page PDF -> JSONL text extraction (PyMuPDF)
   chunk.py                    # page text -> overlapping, sentence-aware chunks
+  embed.py                      # batch-embeds chunks, upserts into `chunks` with pgvector
+  run.py                          # wires download -> extract -> chunk -> embed per symbol
   providers/
-    embeddings.py        # EmbeddingsProvider interface + CloudflareBgeEmbeddings (pinned)
+    embeddings.py        # EmbeddingsProvider interface + CloudflareBgeEmbeddings (pinned), GeminiEmbeddings (fallback)
     generation.py         # GenerationProvider interface + GeminiFlashGeneration (pinned)
 scripts/
   probe_nse_access.py    # measures NSE access (PDF downloads, seed URLs) — see ../SOURCES.md
 tests/
   test_extract.py         # fixture + unit tests for extract.py
   test_chunk.py             # sizing/overlap/section/id tests for chunk.py
-  fixtures/                # two real single PDF pages — shared by both test files
+  test_embed.py              # chunk_uuid + backoff/retry unit tests for embed.py
+  fixtures/                # two real single PDF pages — shared by extract/chunk test files
+sanity.sql                 # chunk counts, avg tokens, one similarity query — see NOTES.md for real output
+NOTES.md                     # results from a real, full ingest run across all 6 pilot symbols
 ```
