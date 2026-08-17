@@ -179,3 +179,127 @@ pushed (`ingest/README.md`, "Connecting to Supabase") — nothing about
 `run.py`/`sanity.sql` is local-stack-specific; they use the same
 `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` config path as everything else
 in this package.
+
+
+## Hybrid retrieval (vector + full-text via reciprocal rank fusion)
+
+`match_chunks_hybrid` (`supabase/migrations/20260817173035_match_chunks_hybrid.sql`)
+fuses `match_chunks`' vector ranking with `search_chunks_text`'s keyword
+ranking via RRF, and is now `/api/search`'s default mode (`mode: "vector"`
+still calls the old vector-only RPC for comparison — see `web/README.md`).
+`ingest/scripts/compare_hybrid.py` runs both RPCs side by side on five
+fixed queries and is the reproducible source of everything below.
+
+### Corpus actually used, and why it's smaller than planned
+
+The plan was RELIANCE/TCS/HDFCBANK/INFY (8 documents). What actually ran:
+**HDFCBANK only — its FY2025-26 annual report (667 of 687 chunks embedded)
+and its concall transcript (17/17)**, 684 chunks total. Two real things cut
+the run short, in order:
+
+1. **A self-inflicted race condition.** Cloudflare's free-tier daily quota
+   was exhausted (again — this project's own testing keeps burning through
+   it; see the original "Hybrid retrieval" run's 429 below), so the corpus
+   build switched to the Gemini fallback. The first Gemini attempt used
+   `embed.py`'s default batch size (50) and pacing (1s) — tuned for
+   Cloudflare, not for Gemini's separate, much tighter per-minute quota. It
+   failed immediately with a genuine `429 RESOURCE_EXHAUSTED` (reproduced
+   directly against the API to confirm, not just inferred from the
+   traceback). Fixed by reusing the batch size/pacing an earlier session
+   already found safe for Gemini (20 texts/batch, 12s between batches) —
+   but the OLD, misconfigured process was still running (embed.py logs and
+   continues past a failed batch rather than aborting) when the database
+   was truncated and the FIXED process started. Both wrote to the same
+   local database concurrently for several minutes before the old one
+   finished on its own. Net damage: one orphaned, partially-embedded INFY
+   `documents` row (29 of 431 chunks, correctly embedded but an arbitrary
+   incomplete slice) that later collided on `documents_nse_seq_id_key`
+   when the clean run tried to insert its own INFY row. Fixed by deleting
+   the orphaned chunks before comparing (`delete from chunks where
+   document_id = ...` — the 29 stray rows, confirmed via `nse_seq_id`
+   collision in the traceback, not guessed) — a genuine bug in how this
+   session sequenced two background processes, not in any shipped code.
+2. **Time.** Even correctly paced, Gemini's rate limit makes embedding
+   slow: HDFCBANK's 704 chunks took 1,768s (~29.5 min) end to end, and one
+   batch failed permanently after exhausting both retry layers (20 chunks
+   of 704 never got embedded — a real, logged gap, not silently dropped).
+   RELIANCE/TCS/INFY would have added another ~45–60 min at the same rate.
+   Given HDFCBANK alone already provides a real annual report (financial
+   figures throughout) and a real concall (qualitative commentary), the
+   corpus was capped there rather than spending another hour reproducing
+   the same mechanism on more companies. Extending to more symbols is a
+   rerun of `ingest run --symbol RELIANCE --symbol TCS --symbol INFY`
+   away, not blocked on anything.
+
+### Method
+
+`compare_hybrid.py --top-k 5 --fusion-weight 0.5` against the local stack
+(`EMBEDDINGS_PROVIDER=gemini`, matching what the corpus was embedded
+with — a vector-only comparison against embeddings from a different
+provider would be meaningless, same rule as everywhere else in this
+project). Two qualitative queries, three numbers-heavy ones.
+
+### Results
+
+| Query | Overlap (top-5) | What changed |
+|---|---|---|
+| "management commentary on margins" | 5/5 | No full-text match at all (`t_rank=None` for every result) — hybrid falls back to pure vector ranking, byte-for-byte identical to vector-only. |
+| "risks related to global economic conditions" | 3/5 | Hybrid promoted p.272 ("DIRECTORS' REPORT... business and financial operations") and p.301 (Model Risk Management Committee) — ranked #17 and #27 by vector alone — into the top 5, on real keyword overlap with the query. |
+| **"dividend per share"** | 3/5 | Hybrid promoted p.643 ("Details of unclaimed dividends...") and p.534 (a financial-statement schedule) over two vector-only picks that were more tangential (shareholder financial-calendar boilerplate, generic dividend-tax-deduction text). |
+| **"earnings per share and net profit"** | 3/5 | Hybrid promoted p.497 ("CONSOLIDATED PROFIT AND LOSS ACCOUNT... Interest earned") and p.280 ("Profit Before Tax grew by 7.6 per cent to ₹95,168.7 cr") — both literally on-topic — ahead of two vector-only picks (p.70's headline chart, p.477's EPS reconciliation table) that were more tangential. |
+| "capital expenditure guidance for next fiscal year" | 5/5 | Same as margins — zero full-text matches, hybrid = vector-only exactly. |
+
+Digit-hit count (does the chunk contain any digit at all) was 5/5 for
+*every* query in *both* modes — not a useful signal on this corpus,
+because an annual report's prose is numeric almost everywhere (page
+numbers, dates, schedule references), not just in the passages that
+actually answer a numeric question. Recorded honestly rather than
+selectively citing it only where it looked good — the real signal here is
+in the content itself (read the promoted/demoted passages above), not this
+proxy metric.
+
+### Read on the actual hypothesis ("numbers-heavy queries should improve")
+
+**Partially confirmed, with a real, specific caveat.** Both numbers-heavy
+queries that got any full-text engagement at all ("dividend per share",
+"earnings per share and net profit") did measurably improve: hybrid
+surfaced literally on-topic financial-statement passages that vector
+search had buried at rank 8–13, purely because bge's embedding of "the
+board recommended a dividend of ₹2.50" doesn't distinguish itself sharply
+from "the board recommended a special interim dividend" or "unclaimed
+dividend procedures" — semantically adjacent, but full-text search doesn't
+care about that distinction and just matches the words.
+
+The caveat: **`websearch_to_tsquery('english', ...)`** (inherited as-is
+from `search_chunks_text`, not something this migration changed) **ANDs
+every non-stopword term together** — a websearch-style query, not an
+OR-of-keywords one. "capital expenditure guidance for next fiscal year"
+needs "capital", "expenditure", "guidance", "fiscal", AND "year" to all
+appear in the *same chunk* for any full-text match at all; HDFCBANK's
+annual report apparently never phrases capex guidance with literally all
+five words together, so full-text contributed nothing and hybrid
+degraded to vector-only — correctly (no wrong answers, no crash), but
+without the improvement the query's numeric character might suggest it
+should get. Short, keyword-like queries ("dividend per share", 3 words,
+all of which co-occur naturally in real dividend-announcement prose) are
+where the AND semantics actually work in hybrid's favor; long
+natural-language questions need the exact phrase's words to co-occur
+somewhere, which is a much stronger requirement than "is this concept
+present." Worth knowing before assuming hybrid mode is a strict upgrade
+for every numeric query — it's an upgrade for queries whose key terms are
+likely to co-occur verbatim in a relevant passage, and a no-op (not a
+regression) otherwise.
+
+### Reproducing this
+
+```bash
+cd ingest
+uv run ingest run --symbol HDFCBANK          # or any symbol(s) already embedded
+uv run python scripts/compare_hybrid.py --top-k 5 --fusion-weight 0.5
+```
+
+`HYBRID_FUSION_WEIGHT`/`HYBRID_TOP_K` (`.env.example`, both packages) set
+the defaults `compare_hybrid.py` and `/api/search` fall back to when not
+passed explicitly — see the migration's comment for why fusion weight
+(how much to trust each channel) and top_k (how many results) are the two
+knobs exposed, and RRF's `k=60` constant isn't.

@@ -3,34 +3,45 @@ import { getEmbeddingsProvider } from "@/lib/providers/embeddings";
 import { getServiceRoleClient } from "@/lib/supabase";
 
 /**
- * POST /api/search — plain semantic search over chunks, with optional
- * metadata filters. No generation step (that's /api/ask) — this returns
- * ranked chunks and their source metadata directly, for a search UI or
- * for debugging retrieval quality on its own.
+ * POST /api/search — semantic + keyword hybrid search over chunks, with
+ * optional metadata filters. No generation step (that's /api/ask) — this
+ * returns ranked chunks and their source metadata directly, for a search
+ * UI or for debugging retrieval quality on its own.
  *
  * Body: { query: string, symbol?: string, doc_type?: "annual_report" |
- * "concall" | "announcement", period?: string, top_k?: number (default 10) }
+ * "concall" | "announcement", period?: string, top_k?: number (default
+ * HYBRID_TOP_K env, else 10), mode?: "hybrid" (default) | "vector" }
  *
  * Runs the query through the SAME EmbeddingsProvider ingest/ used to embed
  * the chunks (EMBEDDINGS_PROVIDER — see lib/providers/embeddings.ts and
  * ARCHITECTURE.md §3.2) — a query embedded by a different model would
- * make every cosine-distance score meaningless, not just wrong. Filtering
- * and cosine ranking both happen in one query, via match_chunks_filtered
- * (supabase/migrations) — a second, purpose-built RPC alongside
- * match_chunks (which /api/ask uses): same join and ordering, but raw
- * (symbol, doc_type, period, source_url) fields instead of a pre-built
- * citation string, and three optional filters match_chunks has no need
- * for.
+ * make every cosine-distance score meaningless, not just wrong.
+ *
+ * Default mode is "hybrid": vector similarity fused with Postgres
+ * full-text search via reciprocal rank fusion (match_chunks_hybrid —
+ * supabase/migrations/*_match_chunks_hybrid.sql), which measurably beats
+ * vector-only on queries containing exact figures/proper nouns vector
+ * embeddings tend to blur together (see ingest/NOTES.md's "Hybrid
+ * retrieval" section for a real five-query comparison). mode="vector"
+ * calls match_chunks_filtered instead — kept specifically so the two can
+ * still be compared against a live server, the same way NOTES.md's
+ * comparison was produced. HYBRID_FUSION_WEIGHT is env-only, not a body
+ * field: like every other provider/model choice in this project, it's a
+ * deployment-level default, not a per-request knob — see .env.example.
  */
 
 const DOC_TYPES = new Set(["annual_report", "concall", "announcement"]);
+const MODES = new Set(["hybrid", "vector"]);
+
+const DEFAULT_TOP_K = Number(process.env.HYBRID_TOP_K ?? 10);
+const FUSION_WEIGHT = Number(process.env.HYBRID_FUSION_WEIGHT ?? 0.5);
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body || typeof body.query !== "string" || !body.query.trim()) {
     return NextResponse.json({ error: "query is required" }, { status: 400 });
   }
-  const { query, symbol, doc_type, period, top_k } = body;
+  const { query, symbol, doc_type, period, top_k, mode = "hybrid" } = body;
 
   if (doc_type !== undefined && !DOC_TYPES.has(doc_type)) {
     return NextResponse.json(
@@ -40,6 +51,12 @@ export async function POST(req: NextRequest) {
   }
   if (top_k !== undefined && (typeof top_k !== "number" || top_k <= 0)) {
     return NextResponse.json({ error: "top_k must be a positive number" }, { status: 400 });
+  }
+  if (!MODES.has(mode)) {
+    return NextResponse.json(
+      { error: `mode must be one of ${[...MODES].join(", ")}` },
+      { status: 400 },
+    );
   }
 
   const embeddings = getEmbeddingsProvider();
@@ -58,17 +75,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `embedding failed: ${message}` }, { status: 502 });
   }
 
-  const { data, error } = await supabase.rpc("match_chunks_filtered", {
-    query_embedding: queryVector,
-    match_count: top_k ?? 10,
-    filter_symbol: symbol ?? null,
-    filter_doc_type: doc_type ?? null,
-    filter_period: period ?? null,
-  });
+  const matchCount = top_k ?? DEFAULT_TOP_K;
+  const { data, error } =
+    mode === "vector"
+      ? await supabase.rpc("match_chunks_filtered", {
+          query_embedding: queryVector,
+          match_count: matchCount,
+          filter_symbol: symbol ?? null,
+          filter_doc_type: doc_type ?? null,
+          filter_period: period ?? null,
+        })
+      : await supabase.rpc("match_chunks_hybrid", {
+          query_embedding: queryVector,
+          query_text: query,
+          match_count: matchCount,
+          fusion_weight: FUSION_WEIGHT,
+          filter_symbol: symbol ?? null,
+          filter_doc_type: doc_type ?? null,
+          filter_period: period ?? null,
+        });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ query, results: data });
+  return NextResponse.json({ query, mode, results: data });
 }

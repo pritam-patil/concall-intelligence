@@ -24,10 +24,11 @@ key, and Cloudflare account ID/API token for the embeddings provider. See
 
 ### `POST /api/search`
 
-Plain semantic search over chunks — embeds `query` server-side (the same
-`EmbeddingsProvider` `ingest/` used to embed the chunks — see
-`src/lib/providers/embeddings.ts`), runs cosine top-k via the
-`match_chunks_filtered` RPC (`supabase/migrations/`), and returns ranked
+Hybrid search over chunks by default — embeds `query` server-side (the
+same `EmbeddingsProvider` `ingest/` used to embed the chunks — see
+`src/lib/providers/embeddings.ts`), then fuses vector similarity with
+Postgres full-text search via reciprocal rank fusion (the
+`match_chunks_hybrid` RPC — `supabase/migrations/`), and returns ranked
 chunks with their source metadata. No generation step — that's `/api/ask`.
 
 ```jsonc
@@ -37,17 +38,30 @@ chunks with their source metadata. No generation step — that's `/api/ask`.
   "symbol": "TCS",           // optional
   "doc_type": "concall",     // optional: annual_report | concall | announcement
   "period": "FY2025-26",     // optional
-  "top_k": 10                // optional, default 10
+  "top_k": 10,                // optional, default HYBRID_TOP_K env (else 10)
+  "mode": "hybrid"            // optional: "hybrid" (default) | "vector"
 }
 // Response
-{ "query": "...", "results": [
+{ "query": "...", "mode": "hybrid", "results": [
   { "content": "...", "symbol": "TCS", "doc_type": "concall", "period": null,
-    "page": 6, "source_url": "https://...", "score": 0.7246 }
+    "page": 6, "source_url": "https://...", "score": 0.0164,
+    "vector_rank": 3, "text_rank": 1 }
 ] }
 ```
 
-`node scripts/test-search.mjs` hits it with three sample queries (one
-unfiltered, one symbol-filtered, one doc_type+period-filtered) against a
+`mode: "vector"` calls the earlier vector-only RPC (`match_chunks_filtered`)
+instead, for comparison — `vector_rank`/`text_rank` are only present in
+`hybrid` mode, and are `null` when a result came from only one of the two
+channels. The fusion balance between the two channels
+(`HYBRID_FUSION_WEIGHT`) is an env-only default, not a request field —
+see `.env.example` and `ingest/NOTES.md`'s "Hybrid retrieval" section for
+why a numbers-heavy query like "dividend per share" is exactly the case
+hybrid mode was built for (vector embeddings tend to blur exact figures
+together; full-text search doesn't).
+
+`node scripts/test-search.mjs` hits it with five sample queries (one
+unfiltered, one symbol-filtered, one doc_type+period-filtered, and the
+same numbers-heavy query run under both `mode`s back to back) against a
 running dev server — see that file for exactly what it checks, and
 `ingest/NOTES.md` for a real, populated dataset this has actually been
 run against.
