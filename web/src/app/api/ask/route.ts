@@ -73,10 +73,11 @@ const SYSTEM_INSTRUCTION = [
   "1. Answer ONLY from the numbered context passages provided in the user message.",
   "   Never use outside knowledge or general information about the company, even if",
   "   you are confident it is correct.",
-  "2. Every factual claim MUST be followed by a citation of the form",
-  "   [doc_type, period, page], copied from the passage you used — for example",
-  "   [annual_report, FY2025-26, p.276]. If a passage's period is empty, write it as",
-  "   [concall, n/a, p.10]. A sentence with no citation is not allowed.",
+  "2. Every factual claim MUST be followed by a citation identifying which numbered",
+  "   context passage(s) support it — written as the passage number(s) in square",
+  "   brackets, e.g. [3], or [3][5] for a claim drawn from more than one passage. Use",
+  "   only the passage numbers shown in the context (the [N] at the start of each",
+  "   passage). A sentence with no citation is not allowed.",
   `3. If the context does not contain the answer, reply with exactly: "${REFUSAL}"`,
   "   and nothing else. Do not apologise, speculate, or explain what is missing.",
   "4. Never give buy, sell, or hold recommendations, price targets, or any personalised",
@@ -119,16 +120,16 @@ const EXTRACTIVE_SNIPPET_CHARS = 400;
 function buildExtractiveAnswer(chunks: MatchedChunk[]): string {
   const intro =
     "⚠️ Automated answer synthesis is temporarily unavailable (generation quota reached). " +
-    "Here are the most relevant passages from the covered filings — cited, so you can verify them directly:";
+    "Here are the most relevant passages from the covered filings — numbered so you can open each source:";
+  // Each passage ends with its numbered marker [n] (n = position in the sources
+  // list, so it maps to the same chunk the UI's citation panel opens).
   const passages = chunks.slice(0, EXTRACTIVE_MAX_PASSAGES).map((c, i) => {
-    const period = c.period ?? "n/a";
-    const page = c.page ?? "n/a";
     const body = c.content.replace(/\s+/g, " ").trim();
     const snippet =
       body.length > EXTRACTIVE_SNIPPET_CHARS ? `${body.slice(0, EXTRACTIVE_SNIPPET_CHARS)}…` : body;
-    return `${i + 1}. ${snippet} [${c.doc_type}, ${period}, p.${page}]`;
+    return `${snippet} [${i + 1}]`;
   });
-  return [intro, "", ...passages].join("\n");
+  return [intro, ...passages].join("\n\n");
 }
 
 export async function POST(req: NextRequest) {
@@ -212,7 +213,7 @@ export async function POST(req: NextRequest) {
           "Context passages:",
           buildContext(chunks),
           "",
-          "Answer the question using only these passages. Cite every claim as [doc_type, period, page].",
+          "Answer the question using only these passages. Cite every claim with its passage number(s) in square brackets, e.g. [3].",
         ].join("\n");
 
         for await (const delta of generation.generateStream(userPrompt, SYSTEM_INSTRUCTION)) {

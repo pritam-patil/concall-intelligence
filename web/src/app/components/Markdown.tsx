@@ -1,14 +1,22 @@
 import type { ReactNode } from "react";
+import type { Source } from "@/lib/ask";
 
 /**
  * A deliberately tiny Markdown renderer for streamed answers — just what
- * /api/ask's model actually emits: paragraphs, unordered/ordered lists, and
- * inline **bold**. No library (keeps the bundle lean), and crucially it builds
- * React elements rather than HTML, so every character of model output is
- * escaped by React — no dangerouslySetInnerHTML, no injection surface.
+ * /api/ask's model emits: paragraphs, unordered/ordered lists, inline
+ * **bold**, and numbered citation markers like `[3]` or `[3][5]`. No library
+ * (keeps the bundle lean), and it builds React elements rather than HTML, so
+ * every character of model output is escaped by React — no
+ * dangerouslySetInnerHTML, no injection surface.
  *
- * Streaming-safe: inline bold matches only a *closed* `**…**`, so a half-
- * arrived `**Fin` renders as literal text until its closing marker streams in.
+ * Citation markers: a `[n]` whose n is a valid 1-based index into `sources`
+ * (the passages were numbered the same way in the prompt) renders as a
+ * clickable marker that calls `onCite(sources[n-1], n)`. Anything else — an
+ * out-of-range number, a bracketed non-number — stays literal text, so a
+ * stray marker degrades gracefully instead of becoming a dead link.
+ *
+ * Streaming-safe: bold matches only a *closed* `**…**`, so a half-arrived
+ * `**Fin` renders as literal text until its closing marker streams in.
  */
 
 type Block =
@@ -16,21 +24,52 @@ type Block =
   | { type: "ul"; items: string[] }
   | { type: "ol"; items: string[] };
 
-// Not global: these are used with .test()/.replace(), where a /g flag would
-// carry lastIndex between calls and misfire.
+type CiteHandler = (source: Source, number: number) => void;
+
+// Not global: used with .test()/.replace(), where a /g flag would carry
+// lastIndex between calls and misfire.
 const BULLET = /^\s*[-*•]\s+/;
 const ORDERED = /^\s*\d+\.\s+/;
+// Inline: **bold** OR a citation token [n] / [n, m, …].
+const INLINE = /\*\*([^*]+?)\*\*|\[(\d+(?:\s*,\s*\d+)*)\]/g;
 
-function parseInline(text: string): ReactNode[] {
+function CitationMarker({ n, onClick }: { n: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Show source ${n}`}
+      className="mx-px inline-flex items-center rounded bg-blue-500/10 px-1 align-super text-[0.7em] font-semibold text-blue-600 hover:bg-blue-500/20 dark:text-blue-400"
+    >
+      {n}
+    </button>
+  );
+}
+
+function parseInline(text: string, sources?: Source[], onCite?: CiteHandler): ReactNode[] {
   const nodes: ReactNode[] = [];
   let last = 0;
   let key = 0;
-  // Bold content can't contain a `*`, which keeps this linear and avoids
-  // matching across adjacent bold spans.
-  for (const m of text.matchAll(/\*\*([^*]+?)\*\*/g)) {
+  for (const m of text.matchAll(INLINE)) {
     const idx = m.index ?? 0;
     if (idx > last) nodes.push(text.slice(last, idx));
-    nodes.push(<strong key={key++}>{m[1]}</strong>);
+
+    if (m[1] !== undefined) {
+      // **bold** — content can't contain a `*`, keeping this linear.
+      nodes.push(<strong key={key++}>{m[1]}</strong>);
+    } else {
+      const numbers = m[2].split(",").map((s) => Number.parseInt(s.trim(), 10));
+      const allInRange =
+        !!sources && !!onCite && numbers.every((n) => n >= 1 && n <= sources.length);
+      if (allInRange) {
+        for (const n of numbers) {
+          const source = sources![n - 1];
+          nodes.push(<CitationMarker key={key++} n={n} onClick={() => onCite!(source, n)} />);
+        }
+      } else {
+        nodes.push(m[0]); // not a resolvable citation — keep literal
+      }
+    }
     last = idx + m[0].length;
   }
   if (last < text.length) nodes.push(text.slice(last));
@@ -77,7 +116,15 @@ function parseBlocks(text: string): Block[] {
   return blocks;
 }
 
-export default function Markdown({ text }: { text: string }) {
+export default function Markdown({
+  text,
+  sources,
+  onCite,
+}: {
+  text: string;
+  sources?: Source[];
+  onCite?: CiteHandler;
+}) {
   const blocks = parseBlocks(text);
   return (
     <div className="space-y-2">
@@ -86,7 +133,7 @@ export default function Markdown({ text }: { text: string }) {
           return (
             <ul key={i} className="list-disc space-y-1 pl-5">
               {block.items.map((item, j) => (
-                <li key={j}>{parseInline(item)}</li>
+                <li key={j}>{parseInline(item, sources, onCite)}</li>
               ))}
             </ul>
           );
@@ -95,14 +142,14 @@ export default function Markdown({ text }: { text: string }) {
           return (
             <ol key={i} className="list-decimal space-y-1 pl-5">
               {block.items.map((item, j) => (
-                <li key={j}>{parseInline(item)}</li>
+                <li key={j}>{parseInline(item, sources, onCite)}</li>
               ))}
             </ol>
           );
         }
         return (
           <p key={i} className="whitespace-pre-wrap">
-            {parseInline(block.text)}
+            {parseInline(block.text, sources, onCite)}
           </p>
         );
       })}

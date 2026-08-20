@@ -6,6 +6,7 @@ import type { Company } from "@/lib/companies";
 import { streamAsk, type Source } from "@/lib/ask";
 import { getSuggestions } from "@/lib/suggestions";
 import Markdown from "./Markdown";
+import CitationPanel, { type ActiveCitation } from "./CitationPanel";
 
 /**
  * The chat surface: company selector, a client-side-only message history, a
@@ -35,6 +36,7 @@ export default function ChatShell({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [activeCitation, setActiveCitation] = useState<ActiveCitation | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -178,7 +180,11 @@ export default function ChatShell({
                           : "text-zinc-800 dark:text-zinc-200"
                       }`}
                     >
-                      <Markdown text={m.content} />
+                      <Markdown
+                        text={m.content}
+                        sources={m.sources}
+                        onCite={(source, number) => setActiveCitation({ source, number })}
+                      />
                       {m.streaming && (
                         <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-current align-middle" />
                       )}
@@ -197,16 +203,18 @@ export default function ChatShell({
                   {m.sources && m.sources.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-0.5">
                       {m.sources.map((s, i) => (
-                        <a
+                        <button
                           key={`${m.id}-${i}`}
-                          href={s.source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-full border border-black/10 px-2 py-0.5 text-xs text-zinc-600 transition-colors hover:bg-black/[.04] dark:border-white/15 dark:text-zinc-400 dark:hover:bg-white/[.06]"
+                          type="button"
+                          onClick={() => setActiveCitation({ source: s, number: i + 1 })}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-black/10 py-0.5 pl-1 pr-2.5 text-xs text-zinc-600 transition-colors hover:bg-black/[.04] dark:border-white/15 dark:text-zinc-400 dark:hover:bg-white/[.06]"
                           title={s.content.slice(0, 140)}
                         >
+                          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500/10 px-1 text-[0.7em] font-semibold text-blue-600 dark:text-blue-400">
+                            {i + 1}
+                          </span>
                           {s.symbol} · {s.doc_type} · p.{s.page ?? "?"}
-                        </a>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -253,6 +261,8 @@ export default function ChatShell({
           Answers are grounded in cited filings and may be incomplete. Informational only — not investment advice.
         </p>
       </div>
+
+      <CitationPanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
     </>
   );
 }
