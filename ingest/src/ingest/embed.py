@@ -87,20 +87,32 @@ def read_chunks_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+# Hosted Supabase fronts PostgREST with a gateway (Kong) that rejects
+# over-long request URLs with a bare 400 "Bad Request" (not PostgREST's JSON
+# error shape) — an `in.(...)` filter carrying hundreds of 36-char uuids blows
+# past that limit. A bare local PostgREST (the dev-only stand-in) has no such
+# gateway, so this only ever surfaces against the real project. Split the id
+# list into URL-safe batches; ~100 uuids keeps the query URL a few KB.
+UUID_IN_BATCH = 100
+
+
 def already_embedded_uuids(client, uuids: list[str], provider_name: str) -> set[str]:
     """uuids that already have a non-null embedding from THIS provider —
-    resumability's skip set. Checked in one query, not one per chunk."""
-    if not uuids:
-        return set()
-    result = (
-        client.table("chunks")
-        .select("id")
-        .in_("id", uuids)
-        .eq("embedding_provider", provider_name)
-        .not_.is_("embedding", "null")
-        .execute()
-    )
-    return {row["id"] for row in result.data}
+    resumability's skip set. Queried in URL-safe batches (UUID_IN_BATCH), not
+    one request per chunk and not all in one over-long request URL."""
+    found: set[str] = set()
+    for start in range(0, len(uuids), UUID_IN_BATCH):
+        batch = uuids[start : start + UUID_IN_BATCH]
+        result = (
+            client.table("chunks")
+            .select("id")
+            .in_("id", batch)
+            .eq("embedding_provider", provider_name)
+            .not_.is_("embedding", "null")
+            .execute()
+        )
+        found.update(row["id"] for row in result.data)
+    return found
 
 
 def embed_batch_with_backoff(provider, texts: list[str]) -> list[list[float]]:
