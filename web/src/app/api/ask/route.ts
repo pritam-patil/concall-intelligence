@@ -42,20 +42,27 @@ const DOC_TYPES = new Set(["annual_report", "concall", "announcement"]);
 
 const DEFAULT_TOP_K = Number(process.env.ASK_TOP_K ?? 8);
 // Cosine similarity (1 - distance) of the single best chunk must clear this
-// or we refuse without generating. STRONGLY PROVIDER-DEPENDENT, and not by
-// a little — measured against this project's own data (see ingest/NOTES.md
-// "Cited Q&A" section):
-//   - Gemini embeddings: on-topic ~0.63-0.73, but the OFF-topic FLOOR is
-//     high (~0.40-0.44 for "boiling point of helium" vs. financial chunks).
-//     A 0.35 gate never fires under Gemini — you'd want ~0.50.
-//   - Cloudflare bge (the PINNED default): more spread out, on-topic
-//     0.66-0.74; 0.35-0.40 is a sensible gate there.
-// 0.35 is tuned for the pinned bge provider and is deliberately conservative
-// (favour a false "answer" the grounding gate can still refuse, over a false
-// refusal). Under the Gemini fallback the code-gate mostly won't fire and
-// the LLM grounding gate (system rule 3) does the real refusing — which is
-// why BOTH paths exist. Retune per embedding model via env.
-const SIMILARITY_THRESHOLD = Number(process.env.ASK_SIMILARITY_THRESHOLD ?? 0.35);
+// or we refuse without generating. STRONGLY PROVIDER-DEPENDENT — MEASURED
+// against this project's own data by the smoke eval (eval/smoke.py; full
+// numbers in ingest/NOTES.md "Smoke eval and tuning"):
+//   - Cloudflare bge (the PINNED default): answerable questions floor at
+//     ~0.72 (range 0.72-0.88), but the OFF-topic floor is nearly as high —
+//     random tokens 0.65, an off-topic real question 0.61, and a
+//     plausible-but-absent one ("cryptocurrency strategy") 0.72, ABOVE some
+//     real questions. The on/off gap is razor-thin, so NO gate value cleanly
+//     separates them; the LLM grounding gate (system rule 3) is what refuses
+//     plausible-absent questions correctly.
+//   - Gemini embeddings (fallback): on-topic ~0.63-0.73, off-topic floor
+//     ~0.40-0.44 — a lower, slightly wider band; ~0.50 fits there.
+// 0.60 is tuned for the pinned bge provider as a CONSERVATIVE backstop: a
+// ~0.12 margin below the 0.72 answerable floor means it (almost) never
+// false-refuses a real question — and a code-path false-refusal is final
+// (there's no LLM call left to recover it). It only catches genuinely
+// degenerate retrieval. The grounding gate does the real refusal work.
+// 0.65-0.70 is the aggressive alternative if saving generation calls matters
+// (the Gemini free tier is 20 generations/day — see NOTES), at the cost of a
+// thin false-refusal margin. Retune per embedding model via env.
+const SIMILARITY_THRESHOLD = Number(process.env.ASK_SIMILARITY_THRESHOLD ?? 0.6);
 
 const REFUSAL = "not found in the covered filings";
 

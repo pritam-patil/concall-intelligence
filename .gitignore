@@ -26,3 +26,6 @@ ingest/build/
 
 # Claude Code session runtime state (not project content)
 .claude/scheduled_tasks.lock
+
+# Python (eval/)
+eval/__pycache__/

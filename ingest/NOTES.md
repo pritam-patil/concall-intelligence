@@ -388,3 +388,128 @@ off-topic→refuse, buy/sell→decline advice + cite facts, empty→pre-flight
 NDJSON stream with `fetch()` + `response.body.getReader()` (a POST body
 rules out `EventSource`). `ASK_TOP_K` / `ASK_SIMILARITY_THRESHOLD`
 (`web/.env.example`) are the two env knobs.
+
+
+## Smoke eval and tuning (`eval/smoke.py`)
+
+Ten hand-written questions (see `eval/smoke.py`), nine tied to the concall
+they should be answered from — one per topic across all six seed companies —
+plus one that should be REFUSED (nothing in the corpus covers it). Each
+question is grounded in the REAL concall content (verified against actual
+chunks: Infosys reported attrition at 13%, Tata Motors PV announced a ₹3/share
+dividend, etc.), not guessed. For each: retrieval **hit@5** (is the expected
+company's concall in the top-5 of vector search?) and a `/api/ask` run whose
+answer is checked for citations that are **grounded** (every cited page
+actually appears among the chunks the endpoint retrieved — i.e. not invented)
+and land in the expected company's document.
+
+### Corpus
+
+The six seed concall transcripts, embedded with **Cloudflare bge** (the
+PINNED provider — its daily quota had reset, so tuning here applies to the
+real production config, not the Gemini fallback), into the local
+Postgres+pgvector+PostgREST stand-in. 149 chunks, 0 embed failures. Concalls
+only, on purpose: "what did management SAY about X" is a transcript question,
+and concalls are small enough (13-48 pages) to build the whole multi-company
+corpus in seconds.
+
+### Results (one clean run, unfiltered `/api/ask`, top_k=8, threshold 0.35)
+
+| # | expect | hit@5 | rank | top-1 | outcome |
+|---|---|---|---|---|---|
+| 1 | INFY attrition | yes | 1 | 0.770 | REFUSED — retrieval miss (see below) |
+| 2 | TMPV dividend/share | yes | 1 | 0.878 | PASS — cited `[concall, n/a, p.3]` |
+| 3 | HDFCBANK deposits | yes | 1 | 0.829 | PASS |
+| 4 | TCS wage hikes | yes | 2 | 0.722 | PASS |
+| 5 | RELIANCE margins | yes | 4 | 0.767 | REFUSED — cross-company crowding (see below) |
+| 6 | TMCV CV demand | yes | 2 | 0.822 | PASS |
+| 7 | INFY revenue guidance | yes | 1 | 0.738 | PASS |
+| 8 | HDFCBANK credit growth | yes | 1 | 0.834 | cited `[concall, n/a, p.3]`/`p.14` (grounded flag caught a later out-of-set page) |
+| 9 | TCS AI demand | yes | 1 | 0.816 | PASS |
+| 10 | REFUSE (crypto) | — | — | 0.724 | PASS — refused "not found in the covered filings" |
+
+**hit@5 = 9/9** — vector retrieval finds the right *company* every time,
+mostly at rank 1. The failures are all *below* the document level:
+
+- **Q1 (attrition), a real retrieval-recall miss.** Infosys's attrition
+  sentence ("Attrition increased slightly to 13%…") lives in a chunk whose
+  embedding is dominated by an unrelated margin bridge (bps walk), so the
+  attrition chunk ranks **below 20** for the attrition query — and doesn't
+  surface even when scoped to INFY only (not in INFY's top-12). Hybrid mode
+  misses it too: `websearch_to_tsquery` ANDs every word of the full question,
+  which the chunk doesn't satisfy (the AND-semantics caveat from the hybrid
+  section). Not fixable by any practical top_k. The model REFUSED rather than
+  answer from unrelated chunks — the safe failure, not a hallucination.
+- **Q5 (RELIANCE margins), cross-company crowding.** "Margins and demand" is
+  discussed by *every* company, so an unfiltered query pulled a mix (INFY×3,
+  HDFCBANK, TCS, TMCV, TMPV) and only ONE RELIANCE chunk into the top-8;
+  the model refused rather than answer off other companies. Passing the
+  `symbol` filter fixes it at the retrieval level (sources → all-RELIANCE,
+  confirmed); end-to-end generation confirmation was blocked by the quota
+  below. `eval/smoke.py` now scopes `/api/ask` by the expected company
+  (`EVAL_SCOPE_ASK`, default on) — each question names its company, and a
+  real UI would filter likewise. hit@5 stays unfiltered.
+- **Q8**, the anti-hallucination check earning its keep: the answer's first
+  citations were grounded (`p.3`, `p.14` both retrieved), but a later cited
+  page fell outside the retrieved set — flagged, not silently accepted.
+- **Q10 exposed an eval bug**, since fixed: the crypto question refused
+  correctly via the LLM *grounding* gate (the model wrote the refusal phrase)
+  but the original verdict only checked the code-path `refused` FLAG, scoring
+  a correct refusal as FAIL. `smoke.py` now treats the refusal phrase from
+  either gate as a refusal.
+
+### Threshold tuning — the key finding
+
+The gating score is the top-1 vector cosine similarity. Measured with bge:
+
+| kind | query | top-1 |
+|---|---|---|
+| off-topic | "photosynthesis chlorophyll sunlight water" | 0.612 |
+| off-topic | "asdfghjkl qwerty zxcvbnm…" (garbage) | 0.652 |
+| plausible-absent | "…cryptocurrency or bitcoin strategy" | 0.724 |
+| answerable (9 Qs) | — | 0.722 – 0.878 |
+
+**bge's similarity floor is so high that off-topic (0.61–0.65) and on-topic
+(≥0.72) nearly touch, and the plausible-absent crypto question (0.724) scores
+ABOVE the lowest real question (0.722).** No single threshold separates
+"refuse" from "answer": to catch crypto you'd have to refuse real questions.
+So the confidence gate *cannot* be the mechanism that rejects
+plausible-but-absent questions — the **LLM grounding gate** is (and did:
+Q10 refused correctly). The gate's real job is narrower: catch genuinely
+degenerate retrieval, cheaply, before spending a generation call.
+
+Given a code-path refusal is *final* (no LLM call left to recover a
+false-refusal), the tuned bge default is **0.60** — a ~0.12 margin below the
+0.72 answerable floor, so it won't false-refuse real questions, while still
+firing on truly broken retrieval. **0.65–0.70** is the aggressive
+alternative that also rejects the measured off-topic band (0.61–0.65) and so
+saves generation calls — attractive given the quota below — at the cost of a
+thin false-refusal margin. `top_k` stays **8**: it covers the short concall
+docs, and the one recall miss isn't top_k-reachable, so raising it only adds
+tokens.
+
+**Final tuned values: `ASK_TOP_K=8`, `ASK_SIMILARITY_THRESHOLD=0.60`**
+(defaults updated in `web/.env.example` and the route). Neither changes any
+outcome in the run above (every real question scored ≥0.72, every refusal
+came from the grounding gate) — the point was to move the gate onto bge's
+actual scale (the old 0.35 could never fire) without introducing
+false-refusal risk.
+
+### A real constraint: the generation free tier is 20 requests/day
+
+`gemini-3.6-flash`'s free tier caps generation at **20 requests per day per
+model** (a real `429 RESOURCE_EXHAUSTED`, quota
+`GenerateRequestsPerDayPerProjectPerModel-FreeTier`, hit mid-eval). A single
+10-question run burns half the daily budget, so the generation side of this
+eval is day-rate-limited — which is why the scoped confirming re-run is
+pending the quota reset. The retrieval side (hit@5, the score distributions,
+the threshold sweep) uses bge's far larger quota and is freely reproducible.
+For a ₹0 project this cap is load-bearing: it's a real argument for the
+confidence gate rejecting obvious misses before spending one of the 20.
+
+### Reproducing
+
+```bash
+# dev server up (bge embeddings, populated DB — see eval/README.md), then:
+python3 eval/smoke.py
+```
