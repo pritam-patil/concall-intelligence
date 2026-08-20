@@ -122,6 +122,47 @@ server-side RAG endpoint without a separate backend service — one deploy
 target for the whole user-facing surface, which matters for staying inside
 a single free hosting tier.
 
+### 3.6 Canonical data store & dev stand-ins
+
+**Decision:** There is exactly **one canonical database — the hosted Supabase
+project, ref `gfewmnvycrdhensfveqf`** (the free-tier project from §3.1). It is
+the single source of truth for `companies`/`documents`/`chunks` and Storage.
+Both halves of the system point at it:
+
+- `web/` via `NEXT_PUBLIC_SUPABASE_URL` (read path).
+- `ingest/` via `SUPABASE_URL` (write path).
+
+They share the project's service-role key. If these two ever name different
+projects, the web app reads a store the pipeline never wrote to — which is
+exactly the drift that once put the company selector in front of a project
+with no schema.
+
+**Local Postgres + pgvector + PostgREST stacks are dev-only stand-ins, never
+canonical.** The `local-supabase-stack` skill stands one up to verify
+migrations, `ingest/` writes, and `web/` routes against a real database over
+real HTTP when the hosted project can't be reached. These stacks are
+**ephemeral** — spun up, asserted against, torn down — and their data is never
+the system of record. Do not treat a passing local run as "the data exists";
+it exists only in the canonical hosted project once ingestion has written
+there.
+
+**Applying schema to the canonical project (one-time, privileged).**
+`supabase link --project-ref gfewmnvycrdhensfveqf` → `supabase db push`
+(applies `supabase/migrations/`) → apply `supabase/seed.sql` to the remote
+(**`db push` does not run the seed**, so the `companies` rows the ingest FK
+depends on must be inserted explicitly) → run `ingest/run.py`. The link/push
+step needs a Supabase access token + database password (see `ingest/README.md`
+"Connecting to Supabase") — credentials the REST service-role key does not
+grant, which is why this is a deliberate, separate step and not something the
+app does on its own.
+
+**Drift guards (so an empty/foreign store can't be silent):**
+
+- `GET /api/health` reports the connected `project_ref` and row counts for
+  `companies`, `documents`, and `chunks` (`degraded`/`error` → HTTP 503).
+- In development, `web/` warns loudly at startup (`web/src/instrumentation.ts`)
+  if `companies` has zero rows or the table is missing.
+
 ## 4. Data flow
 
 ```mermaid
