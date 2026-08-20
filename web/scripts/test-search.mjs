@@ -21,7 +21,10 @@ const API_URL = process.env.SEARCH_API_URL ?? "http://localhost:3000/api/search"
 
 // Three distinct filter combinations on purpose: unfiltered, a symbol
 // filter, and a combined doc_type+period filter — the point isn't just
-// "does search work" but "do the filters actually narrow results".
+// "does search work" but "do the filters actually narrow results". The
+// last two re-run the same numbers-heavy query under both modes, back to
+// back, so the hybrid-vs-vector difference this route was built for is
+// visible from this one script, not just in ingest/NOTES.md's writeup.
 const QUERIES = [
   { query: "risks related to global economic conditions" },
   { query: "AI investments and generative AI strategy", symbol: "INFY" },
@@ -30,6 +33,8 @@ const QUERIES = [
     doc_type: "annual_report",
     period: "FY2025-26",
   },
+  { query: "dividend per share", mode: "vector" },
+  { query: "dividend per share", mode: "hybrid" },
 ];
 
 async function runQuery(body) {

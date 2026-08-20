@@ -179,3 +179,337 @@ pushed (`ingest/README.md`, "Connecting to Supabase") — nothing about
 `run.py`/`sanity.sql` is local-stack-specific; they use the same
 `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` config path as everything else
 in this package.
+
+
+## Hybrid retrieval (vector + full-text via reciprocal rank fusion)
+
+`match_chunks_hybrid` (`supabase/migrations/20260817173035_match_chunks_hybrid.sql`)
+fuses `match_chunks`' vector ranking with `search_chunks_text`'s keyword
+ranking via RRF, and is now `/api/search`'s default mode (`mode: "vector"`
+still calls the old vector-only RPC for comparison — see `web/README.md`).
+`ingest/scripts/compare_hybrid.py` runs both RPCs side by side on five
+fixed queries and is the reproducible source of everything below.
+
+### Corpus actually used, and why it's smaller than planned
+
+The plan was RELIANCE/TCS/HDFCBANK/INFY (8 documents). What actually ran:
+**HDFCBANK only — its FY2025-26 annual report (667 of 687 chunks embedded)
+and its concall transcript (17/17)**, 684 chunks total. Two real things cut
+the run short, in order:
+
+1. **A self-inflicted race condition.** Cloudflare's free-tier daily quota
+   was exhausted (again — this project's own testing keeps burning through
+   it; see the original "Hybrid retrieval" run's 429 below), so the corpus
+   build switched to the Gemini fallback. The first Gemini attempt used
+   `embed.py`'s default batch size (50) and pacing (1s) — tuned for
+   Cloudflare, not for Gemini's separate, much tighter per-minute quota. It
+   failed immediately with a genuine `429 RESOURCE_EXHAUSTED` (reproduced
+   directly against the API to confirm, not just inferred from the
+   traceback). Fixed by reusing the batch size/pacing an earlier session
+   already found safe for Gemini (20 texts/batch, 12s between batches) —
+   but the OLD, misconfigured process was still running (embed.py logs and
+   continues past a failed batch rather than aborting) when the database
+   was truncated and the FIXED process started. Both wrote to the same
+   local database concurrently for several minutes before the old one
+   finished on its own. Net damage: one orphaned, partially-embedded INFY
+   `documents` row (29 of 431 chunks, correctly embedded but an arbitrary
+   incomplete slice) that later collided on `documents_nse_seq_id_key`
+   when the clean run tried to insert its own INFY row. Fixed by deleting
+   the orphaned chunks before comparing (`delete from chunks where
+   document_id = ...` — the 29 stray rows, confirmed via `nse_seq_id`
+   collision in the traceback, not guessed) — a genuine bug in how this
+   session sequenced two background processes, not in any shipped code.
+2. **Time.** Even correctly paced, Gemini's rate limit makes embedding
+   slow: HDFCBANK's 704 chunks took 1,768s (~29.5 min) end to end, and one
+   batch failed permanently after exhausting both retry layers (20 chunks
+   of 704 never got embedded — a real, logged gap, not silently dropped).
+   RELIANCE/TCS/INFY would have added another ~45–60 min at the same rate.
+   Given HDFCBANK alone already provides a real annual report (financial
+   figures throughout) and a real concall (qualitative commentary), the
+   corpus was capped there rather than spending another hour reproducing
+   the same mechanism on more companies. Extending to more symbols is a
+   rerun of `ingest run --symbol RELIANCE --symbol TCS --symbol INFY`
+   away, not blocked on anything.
+
+### Method
+
+`compare_hybrid.py --top-k 5 --fusion-weight 0.5` against the local stack
+(`EMBEDDINGS_PROVIDER=gemini`, matching what the corpus was embedded
+with — a vector-only comparison against embeddings from a different
+provider would be meaningless, same rule as everywhere else in this
+project). Two qualitative queries, three numbers-heavy ones.
+
+### Results
+
+| Query | Overlap (top-5) | What changed |
+|---|---|---|
+| "management commentary on margins" | 5/5 | No full-text match at all (`t_rank=None` for every result) — hybrid falls back to pure vector ranking, byte-for-byte identical to vector-only. |
+| "risks related to global economic conditions" | 3/5 | Hybrid promoted p.272 ("DIRECTORS' REPORT... business and financial operations") and p.301 (Model Risk Management Committee) — ranked #17 and #27 by vector alone — into the top 5, on real keyword overlap with the query. |
+| **"dividend per share"** | 3/5 | Hybrid promoted p.643 ("Details of unclaimed dividends...") and p.534 (a financial-statement schedule) over two vector-only picks that were more tangential (shareholder financial-calendar boilerplate, generic dividend-tax-deduction text). |
+| **"earnings per share and net profit"** | 3/5 | Hybrid promoted p.497 ("CONSOLIDATED PROFIT AND LOSS ACCOUNT... Interest earned") and p.280 ("Profit Before Tax grew by 7.6 per cent to ₹95,168.7 cr") — both literally on-topic — ahead of two vector-only picks (p.70's headline chart, p.477's EPS reconciliation table) that were more tangential. |
+| "capital expenditure guidance for next fiscal year" | 5/5 | Same as margins — zero full-text matches, hybrid = vector-only exactly. |
+
+Digit-hit count (does the chunk contain any digit at all) was 5/5 for
+*every* query in *both* modes — not a useful signal on this corpus,
+because an annual report's prose is numeric almost everywhere (page
+numbers, dates, schedule references), not just in the passages that
+actually answer a numeric question. Recorded honestly rather than
+selectively citing it only where it looked good — the real signal here is
+in the content itself (read the promoted/demoted passages above), not this
+proxy metric.
+
+### Read on the actual hypothesis ("numbers-heavy queries should improve")
+
+**Partially confirmed, with a real, specific caveat.** Both numbers-heavy
+queries that got any full-text engagement at all ("dividend per share",
+"earnings per share and net profit") did measurably improve: hybrid
+surfaced literally on-topic financial-statement passages that vector
+search had buried at rank 8–13, purely because bge's embedding of "the
+board recommended a dividend of ₹2.50" doesn't distinguish itself sharply
+from "the board recommended a special interim dividend" or "unclaimed
+dividend procedures" — semantically adjacent, but full-text search doesn't
+care about that distinction and just matches the words.
+
+The caveat: **`websearch_to_tsquery('english', ...)`** (inherited as-is
+from `search_chunks_text`, not something this migration changed) **ANDs
+every non-stopword term together** — a websearch-style query, not an
+OR-of-keywords one. "capital expenditure guidance for next fiscal year"
+needs "capital", "expenditure", "guidance", "fiscal", AND "year" to all
+appear in the *same chunk* for any full-text match at all; HDFCBANK's
+annual report apparently never phrases capex guidance with literally all
+five words together, so full-text contributed nothing and hybrid
+degraded to vector-only — correctly (no wrong answers, no crash), but
+without the improvement the query's numeric character might suggest it
+should get. Short, keyword-like queries ("dividend per share", 3 words,
+all of which co-occur naturally in real dividend-announcement prose) are
+where the AND semantics actually work in hybrid's favor; long
+natural-language questions need the exact phrase's words to co-occur
+somewhere, which is a much stronger requirement than "is this concept
+present." Worth knowing before assuming hybrid mode is a strict upgrade
+for every numeric query — it's an upgrade for queries whose key terms are
+likely to co-occur verbatim in a relevant passage, and a no-op (not a
+regression) otherwise.
+
+### Reproducing this
+
+```bash
+cd ingest
+uv run ingest run --symbol HDFCBANK          # or any symbol(s) already embedded
+uv run python scripts/compare_hybrid.py --top-k 5 --fusion-weight 0.5
+```
+
+`HYBRID_FUSION_WEIGHT`/`HYBRID_TOP_K` (`.env.example`, both packages) set
+the defaults `compare_hybrid.py` and `/api/search` fall back to when not
+passed explicitly — see the migration's comment for why fusion weight
+(how much to trust each channel) and top_k (how many results) are the two
+knobs exposed, and RRF's `k=60` constant isn't.
+
+
+## Cited Q&A (`POST /api/ask`)
+
+`/api/ask` (`web/src/app/api/ask/route.ts`) embeds the question, runs
+vector similarity search (`match_chunks_filtered` — a real cosine `score`,
+deliberately NOT the hybrid RRF RPC, because the confidence gate below
+needs an absolute similarity and RRF fusion scores are rank-based), and
+streams a Gemini answer grounded strictly in the retrieved passages,
+citing every claim as `[doc_type, period, page]`. Refusals use one phrase,
+`"not found in the covered filings"`, from either of two gates.
+
+### Verified for real, and against what
+
+Same local Postgres+pgvector+PostgREST stand-in as everywhere else in this
+file (hosted project still unlinked). The corpus here was NOT a full PDF
+ingest: it's **six crafted, realistic HDFCBANK passages** (a dividend line,
+PAT/EPS, a risk paragraph, a capex/opex line, an NPA line, and a concall
+margin comment) with correct metadata, embedded with the **real Gemini
+`gemini-embedding-001`** model and inserted directly. The full ingest path
+is already verified in the hybrid-search run above; what `/api/ask` needed
+exercising is its OWN logic (embed → retrieve → threshold → prompt →
+stream → cite → refuse), for which a handful of correctly-labelled chunks
+covering the tested questions is the right, fast tool, not another
+30-minute Gemini-paced ingest. Generation used the **real** Gemini Flash
+model over its real streaming (SSE) transport — nothing mocked.
+
+### A real API break this surfaced: `gemini-2.0-flash` is retired
+
+The project's pinned generation model, `gemini-2.0-flash`, now returns a
+hard `404 NOT_FOUND` — "This model models/gemini-2.0-flash is no longer
+available. Please update your code to use models/gemini-3.6-flash". Caught
+by calling the real endpoint, not from docs. Updated the default in both
+packages (`web/src/lib/providers/generation.ts`,
+`ingest/src/ingest/config.py`) and both `.env.example`s (and the real
+`web/.env.local`) to `gemini-3.6-flash`. This is the mildest version of
+exactly what the provider-interface indirection (ARCHITECTURE.md §3.3)
+exists to absorb — a model-id bump behind one env var, no call-site
+changes. (`gemini-3.6-flash` is a *thinking* model — its stream emits
+frames whose only content is an empty-text "thought" part; the SSE parser's
+`if (text)` guard skips those.)
+
+### The confidence threshold is strongly provider-dependent (measured)
+
+`ASK_SIMILARITY_THRESHOLD` (default 0.35) gates the cheap refusal: best
+chunk below it → refuse WITHOUT an LLM call. Real cosine scores from this
+run (Gemini embeddings, `text-embedding` floor is HIGH):
+
+| Question | max score | which gate | outcome |
+|---|---|---|---|
+| "What dividend did the board recommend?" | **0.733** | neither (passed) | cited answer, `[annual_report, FY2025-26, p.276]` |
+| "Should I buy this stock? Also, what was the profit after tax?" | 0.625 | neither (passed) | "I do not provide investment advice." + PAT cited `[annual_report, FY2025-26, p.70]` |
+| "What is the boiling point of helium?" | **0.437** | LLM grounding gate | "not found in the covered filings" |
+
+The off-topic helium question scored **0.437** — ABOVE the 0.35 code-gate,
+so the cheap path did NOT fire; the LLM's grounding gate (system rule 3)
+refused instead. That's the two-gate design earning its keep, and it's the
+concrete evidence that **0.35 is too low for Gemini** (its off-topic floor
+sits ~0.40–0.44; you'd want ~0.50). 0.35 is tuned for the PINNED provider,
+Cloudflare bge (more spread out, on-topic 0.66–0.74 per the runs above),
+where it's a sensible catch-total-misses gate. The knob is env-tunable per
+embedding model precisely because one number can't serve both. To confirm
+the code-gate itself works, a re-run with `ASK_SIMILARITY_THRESHOLD=0.9`
+made the 0.733 dividend question refuse via the code path — empty sources,
+`refused:true`, and **1.1s end to end** (embed + DB only, no generation),
+vs. the multi-second streamed answer at the default threshold.
+
+### Transient 503s are real on the free tier
+
+The first verification run hit a genuine `503 UNAVAILABLE` ("high demand")
+from Gemini mid-feature — surfaced correctly as an in-band
+`{"type":"error"}` event (a post-`200` failure can't change the HTTP
+status). Added a bounded connect-retry to `generateStream` for 429/500/503
+BEFORE the stream starts (retrying mid-body isn't safe once deltas are
+out) — the streaming analogue of the Python `generate`'s tenacity retry.
+The re-run rode through cleanly.
+
+### Reproducing
+
+`web/scripts/test-ask.mjs` runs four scenarios (answerable,
+off-topic→refuse, buy/sell→decline advice + cite facts, empty→pre-flight
+400) against a running dev server pointed at a populated DB, consuming the
+NDJSON stream with `fetch()` + `response.body.getReader()` (a POST body
+rules out `EventSource`). `ASK_TOP_K` / `ASK_SIMILARITY_THRESHOLD`
+(`web/.env.example`) are the two env knobs.
+
+
+## Smoke eval and tuning (`eval/smoke.py`)
+
+Ten hand-written questions (see `eval/smoke.py`), nine tied to the concall
+they should be answered from — one per topic across all six seed companies —
+plus one that should be REFUSED (nothing in the corpus covers it). Each
+question is grounded in the REAL concall content (verified against actual
+chunks: Infosys reported attrition at 13%, Tata Motors PV announced a ₹3/share
+dividend, etc.), not guessed. For each: retrieval **hit@5** (is the expected
+company's concall in the top-5 of vector search?) and a `/api/ask` run whose
+answer is checked for citations that are **grounded** (every cited page
+actually appears among the chunks the endpoint retrieved — i.e. not invented)
+and land in the expected company's document.
+
+### Corpus
+
+The six seed concall transcripts, embedded with **Cloudflare bge** (the
+PINNED provider — its daily quota had reset, so tuning here applies to the
+real production config, not the Gemini fallback), into the local
+Postgres+pgvector+PostgREST stand-in. 149 chunks, 0 embed failures. Concalls
+only, on purpose: "what did management SAY about X" is a transcript question,
+and concalls are small enough (13-48 pages) to build the whole multi-company
+corpus in seconds.
+
+### Results (one clean run, unfiltered `/api/ask`, top_k=8, threshold 0.35)
+
+| # | expect | hit@5 | rank | top-1 | outcome |
+|---|---|---|---|---|---|
+| 1 | INFY attrition | yes | 1 | 0.770 | REFUSED — retrieval miss (see below) |
+| 2 | TMPV dividend/share | yes | 1 | 0.878 | PASS — cited `[concall, n/a, p.3]` |
+| 3 | HDFCBANK deposits | yes | 1 | 0.829 | PASS |
+| 4 | TCS wage hikes | yes | 2 | 0.722 | PASS |
+| 5 | RELIANCE margins | yes | 4 | 0.767 | REFUSED — cross-company crowding (see below) |
+| 6 | TMCV CV demand | yes | 2 | 0.822 | PASS |
+| 7 | INFY revenue guidance | yes | 1 | 0.738 | PASS |
+| 8 | HDFCBANK credit growth | yes | 1 | 0.834 | cited `[concall, n/a, p.3]`/`p.14` (grounded flag caught a later out-of-set page) |
+| 9 | TCS AI demand | yes | 1 | 0.816 | PASS |
+| 10 | REFUSE (crypto) | — | — | 0.724 | PASS — refused "not found in the covered filings" |
+
+**hit@5 = 9/9** — vector retrieval finds the right *company* every time,
+mostly at rank 1. The failures are all *below* the document level:
+
+- **Q1 (attrition), a real retrieval-recall miss.** Infosys's attrition
+  sentence ("Attrition increased slightly to 13%…") lives in a chunk whose
+  embedding is dominated by an unrelated margin bridge (bps walk), so the
+  attrition chunk ranks **below 20** for the attrition query — and doesn't
+  surface even when scoped to INFY only (not in INFY's top-12). Hybrid mode
+  misses it too: `websearch_to_tsquery` ANDs every word of the full question,
+  which the chunk doesn't satisfy (the AND-semantics caveat from the hybrid
+  section). Not fixable by any practical top_k. The model REFUSED rather than
+  answer from unrelated chunks — the safe failure, not a hallucination.
+- **Q5 (RELIANCE margins), cross-company crowding.** "Margins and demand" is
+  discussed by *every* company, so an unfiltered query pulled a mix (INFY×3,
+  HDFCBANK, TCS, TMCV, TMPV) and only ONE RELIANCE chunk into the top-8;
+  the model refused rather than answer off other companies. Passing the
+  `symbol` filter fixes it at the retrieval level (sources → all-RELIANCE,
+  confirmed); end-to-end generation confirmation was blocked by the quota
+  below. `eval/smoke.py` now scopes `/api/ask` by the expected company
+  (`EVAL_SCOPE_ASK`, default on) — each question names its company, and a
+  real UI would filter likewise. hit@5 stays unfiltered.
+- **Q8**, the anti-hallucination check earning its keep: the answer's first
+  citations were grounded (`p.3`, `p.14` both retrieved), but a later cited
+  page fell outside the retrieved set — flagged, not silently accepted.
+- **Q10 exposed an eval bug**, since fixed: the crypto question refused
+  correctly via the LLM *grounding* gate (the model wrote the refusal phrase)
+  but the original verdict only checked the code-path `refused` FLAG, scoring
+  a correct refusal as FAIL. `smoke.py` now treats the refusal phrase from
+  either gate as a refusal.
+
+### Threshold tuning — the key finding
+
+The gating score is the top-1 vector cosine similarity. Measured with bge:
+
+| kind | query | top-1 |
+|---|---|---|
+| off-topic | "photosynthesis chlorophyll sunlight water" | 0.612 |
+| off-topic | "asdfghjkl qwerty zxcvbnm…" (garbage) | 0.652 |
+| plausible-absent | "…cryptocurrency or bitcoin strategy" | 0.724 |
+| answerable (9 Qs) | — | 0.722 – 0.878 |
+
+**bge's similarity floor is so high that off-topic (0.61–0.65) and on-topic
+(≥0.72) nearly touch, and the plausible-absent crypto question (0.724) scores
+ABOVE the lowest real question (0.722).** No single threshold separates
+"refuse" from "answer": to catch crypto you'd have to refuse real questions.
+So the confidence gate *cannot* be the mechanism that rejects
+plausible-but-absent questions — the **LLM grounding gate** is (and did:
+Q10 refused correctly). The gate's real job is narrower: catch genuinely
+degenerate retrieval, cheaply, before spending a generation call.
+
+Given a code-path refusal is *final* (no LLM call left to recover a
+false-refusal), the tuned bge default is **0.60** — a ~0.12 margin below the
+0.72 answerable floor, so it won't false-refuse real questions, while still
+firing on truly broken retrieval. **0.65–0.70** is the aggressive
+alternative that also rejects the measured off-topic band (0.61–0.65) and so
+saves generation calls — attractive given the quota below — at the cost of a
+thin false-refusal margin. `top_k` stays **8**: it covers the short concall
+docs, and the one recall miss isn't top_k-reachable, so raising it only adds
+tokens.
+
+**Final tuned values: `ASK_TOP_K=8`, `ASK_SIMILARITY_THRESHOLD=0.60`**
+(defaults updated in `web/.env.example` and the route). Neither changes any
+outcome in the run above (every real question scored ≥0.72, every refusal
+came from the grounding gate) — the point was to move the gate onto bge's
+actual scale (the old 0.35 could never fire) without introducing
+false-refusal risk.
+
+### A real constraint: the generation free tier is 20 requests/day
+
+`gemini-3.6-flash`'s free tier caps generation at **20 requests per day per
+model** (a real `429 RESOURCE_EXHAUSTED`, quota
+`GenerateRequestsPerDayPerProjectPerModel-FreeTier`, hit mid-eval). A single
+10-question run burns half the daily budget, so the generation side of this
+eval is day-rate-limited — which is why the scoped confirming re-run is
+pending the quota reset. The retrieval side (hit@5, the score distributions,
+the threshold sweep) uses bge's far larger quota and is freely reproducible.
+For a ₹0 project this cap is load-bearing: it's a real argument for the
+confidence gate rejecting obvious misses before spending one of the 20.
+
+### Reproducing
+
+```bash
+# dev server up (bge embeddings, populated DB — see eval/README.md), then:
+python3 eval/smoke.py
+```

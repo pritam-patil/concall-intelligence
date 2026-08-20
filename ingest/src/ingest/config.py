@@ -45,6 +45,13 @@ class Settings:
     # NSE source access.
     nse_base_url: str
 
+    # Hybrid retrieval (match_chunks_hybrid — supabase/migrations). Mirrors
+    # web/.env.example's HYBRID_FUSION_WEIGHT/HYBRID_TOP_K exactly, so a
+    # comparison run from this package and a live /api/search request use
+    # the same defaults unless deliberately overridden.
+    hybrid_fusion_weight: float
+    hybrid_top_k: int
+
     @classmethod
     def load(cls) -> Settings:
         return cls(
@@ -61,8 +68,10 @@ class Settings:
             ),
             generation_provider=os.environ.get("GENERATION_PROVIDER", "gemini_flash"),
             gemini_api_key=os.environ.get("GEMINI_API_KEY"),
-            gemini_model=os.environ.get("GEMINI_MODEL", "gemini-2.0-flash"),
+            gemini_model=os.environ.get("GEMINI_MODEL", "gemini-3.6-flash"),
             nse_base_url=os.environ.get("NSE_BASE_URL", "https://www.nseindia.com"),
+            hybrid_fusion_weight=float(os.environ.get("HYBRID_FUSION_WEIGHT", "0.5")),
+            hybrid_top_k=int(os.environ.get("HYBRID_TOP_K", "10")),
         )
 
 
