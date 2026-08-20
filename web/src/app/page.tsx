@@ -17,8 +17,10 @@ export default async function Home() {
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="sticky top-0 z-10 border-b border-black/10 bg-background/90 backdrop-blur dark:border-white/10">
+    // Fixed to the viewport height so the composer stays pinned to the bottom
+    // and only the message list scrolls (h-dvh handles mobile browser chrome).
+    <div className="flex h-dvh flex-col">
+      <header className="shrink-0 border-b border-black/10 dark:border-white/10">
         <div className="mx-auto w-full max-w-2xl px-4 py-3">
           <h1 className="text-base font-semibold tracking-tight">Concall Intelligence</h1>
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
