@@ -303,3 +303,88 @@ the defaults `compare_hybrid.py` and `/api/search` fall back to when not
 passed explicitly — see the migration's comment for why fusion weight
 (how much to trust each channel) and top_k (how many results) are the two
 knobs exposed, and RRF's `k=60` constant isn't.
+
+
+## Cited Q&A (`POST /api/ask`)
+
+`/api/ask` (`web/src/app/api/ask/route.ts`) embeds the question, runs
+vector similarity search (`match_chunks_filtered` — a real cosine `score`,
+deliberately NOT the hybrid RRF RPC, because the confidence gate below
+needs an absolute similarity and RRF fusion scores are rank-based), and
+streams a Gemini answer grounded strictly in the retrieved passages,
+citing every claim as `[doc_type, period, page]`. Refusals use one phrase,
+`"not found in the covered filings"`, from either of two gates.
+
+### Verified for real, and against what
+
+Same local Postgres+pgvector+PostgREST stand-in as everywhere else in this
+file (hosted project still unlinked). The corpus here was NOT a full PDF
+ingest: it's **six crafted, realistic HDFCBANK passages** (a dividend line,
+PAT/EPS, a risk paragraph, a capex/opex line, an NPA line, and a concall
+margin comment) with correct metadata, embedded with the **real Gemini
+`gemini-embedding-001`** model and inserted directly. The full ingest path
+is already verified in the hybrid-search run above; what `/api/ask` needed
+exercising is its OWN logic (embed → retrieve → threshold → prompt →
+stream → cite → refuse), for which a handful of correctly-labelled chunks
+covering the tested questions is the right, fast tool, not another
+30-minute Gemini-paced ingest. Generation used the **real** Gemini Flash
+model over its real streaming (SSE) transport — nothing mocked.
+
+### A real API break this surfaced: `gemini-2.0-flash` is retired
+
+The project's pinned generation model, `gemini-2.0-flash`, now returns a
+hard `404 NOT_FOUND` — "This model models/gemini-2.0-flash is no longer
+available. Please update your code to use models/gemini-3.6-flash". Caught
+by calling the real endpoint, not from docs. Updated the default in both
+packages (`web/src/lib/providers/generation.ts`,
+`ingest/src/ingest/config.py`) and both `.env.example`s (and the real
+`web/.env.local`) to `gemini-3.6-flash`. This is the mildest version of
+exactly what the provider-interface indirection (ARCHITECTURE.md §3.3)
+exists to absorb — a model-id bump behind one env var, no call-site
+changes. (`gemini-3.6-flash` is a *thinking* model — its stream emits
+frames whose only content is an empty-text "thought" part; the SSE parser's
+`if (text)` guard skips those.)
+
+### The confidence threshold is strongly provider-dependent (measured)
+
+`ASK_SIMILARITY_THRESHOLD` (default 0.35) gates the cheap refusal: best
+chunk below it → refuse WITHOUT an LLM call. Real cosine scores from this
+run (Gemini embeddings, `text-embedding` floor is HIGH):
+
+| Question | max score | which gate | outcome |
+|---|---|---|---|
+| "What dividend did the board recommend?" | **0.733** | neither (passed) | cited answer, `[annual_report, FY2025-26, p.276]` |
+| "Should I buy this stock? Also, what was the profit after tax?" | 0.625 | neither (passed) | "I do not provide investment advice." + PAT cited `[annual_report, FY2025-26, p.70]` |
+| "What is the boiling point of helium?" | **0.437** | LLM grounding gate | "not found in the covered filings" |
+
+The off-topic helium question scored **0.437** — ABOVE the 0.35 code-gate,
+so the cheap path did NOT fire; the LLM's grounding gate (system rule 3)
+refused instead. That's the two-gate design earning its keep, and it's the
+concrete evidence that **0.35 is too low for Gemini** (its off-topic floor
+sits ~0.40–0.44; you'd want ~0.50). 0.35 is tuned for the PINNED provider,
+Cloudflare bge (more spread out, on-topic 0.66–0.74 per the runs above),
+where it's a sensible catch-total-misses gate. The knob is env-tunable per
+embedding model precisely because one number can't serve both. To confirm
+the code-gate itself works, a re-run with `ASK_SIMILARITY_THRESHOLD=0.9`
+made the 0.733 dividend question refuse via the code path — empty sources,
+`refused:true`, and **1.1s end to end** (embed + DB only, no generation),
+vs. the multi-second streamed answer at the default threshold.
+
+### Transient 503s are real on the free tier
+
+The first verification run hit a genuine `503 UNAVAILABLE` ("high demand")
+from Gemini mid-feature — surfaced correctly as an in-band
+`{"type":"error"}` event (a post-`200` failure can't change the HTTP
+status). Added a bounded connect-retry to `generateStream` for 429/500/503
+BEFORE the stream starts (retrying mid-body isn't safe once deltas are
+out) — the streaming analogue of the Python `generate`'s tenacity retry.
+The re-run rode through cleanly.
+
+### Reproducing
+
+`web/scripts/test-ask.mjs` runs four scenarios (answerable,
+off-topic→refuse, buy/sell→decline advice + cite facts, empty→pre-flight
+400) against a running dev server pointed at a populated DB, consuming the
+NDJSON stream with `fetch()` + `response.body.getReader()` (a POST body
+rules out `EventSource`). `ASK_TOP_K` / `ASK_SIMILARITY_THRESHOLD`
+(`web/.env.example`) are the two env knobs.
