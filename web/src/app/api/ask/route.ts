@@ -106,6 +106,31 @@ function buildContext(chunks: MatchedChunk[]): string {
     .join("\n\n");
 }
 
+// Last-resort fallback for when EVERY generation provider fails (all free-tier
+// quotas exhausted — Gemini's daily cap AND the Cloudflare failover). Retrieval
+// runs on a separate budget (Cloudflare bge + pgvector), so we still hold the
+// cited passages; rather than only erroring, degrade to an extractive answer —
+// a short notice plus the top passages, each carrying the same
+// [doc_type, period, page] citation the model would have used. The `sources`
+// event already emitted the full list, so the UI's citation chips show too.
+const EXTRACTIVE_MAX_PASSAGES = 3;
+const EXTRACTIVE_SNIPPET_CHARS = 400;
+
+function buildExtractiveAnswer(chunks: MatchedChunk[]): string {
+  const intro =
+    "⚠️ Automated answer synthesis is temporarily unavailable (generation quota reached). " +
+    "Here are the most relevant passages from the covered filings — cited, so you can verify them directly:";
+  const passages = chunks.slice(0, EXTRACTIVE_MAX_PASSAGES).map((c, i) => {
+    const period = c.period ?? "n/a";
+    const page = c.page ?? "n/a";
+    const body = c.content.replace(/\s+/g, " ").trim();
+    const snippet =
+      body.length > EXTRACTIVE_SNIPPET_CHARS ? `${body.slice(0, EXTRACTIVE_SNIPPET_CHARS)}…` : body;
+    return `${i + 1}. ${snippet} [${c.doc_type}, ${period}, p.${page}]`;
+  });
+  return [intro, "", ...passages].join("\n");
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body || typeof body.question !== "string" || !body.question.trim()) {
@@ -159,6 +184,10 @@ export async function POST(req: NextRequest) {
       const emit = (obj: unknown) =>
         controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
 
+      // Declared out here so the catch can tell "no output at all" (→ the
+      // extractive fallback) from "died mid-answer" (→ an interruption note).
+      let emittedDelta = false;
+
       try {
         // Refusal shows no sources — "not found in the covered filings"
         // and a list of sources would contradict each other. max_score is
@@ -187,15 +216,29 @@ export async function POST(req: NextRequest) {
         ].join("\n");
 
         for await (const delta of generation.generateStream(userPrompt, SYSTEM_INSTRUCTION)) {
+          emittedDelta = true;
           emit({ type: "delta", text: delta });
         }
         emit({ type: "done", refused: false });
         controller.close();
       } catch (err) {
-        // Past this point the 200 and headers are already sent — the only
-        // way to signal failure is an in-band event, not an HTTP status.
+        // Past this point the 200 and headers are already sent — the only way
+        // to react is an in-band event, not an HTTP status.
         const message = err instanceof Error ? err.message : String(err);
-        emit({ type: "error", error: `generation failed: ${message}` });
+        if (emittedDelta) {
+          // A partial answer already streamed; generation can't be cleanly
+          // restarted mid-stream, so note the interruption rather than
+          // contradicting what's already on screen.
+          console.warn(`[ask] generation failed mid-stream after partial output: ${message}`);
+          emit({ type: "delta", text: "\n\n_(The answer was cut off — generation was interrupted.)_" });
+          emit({ type: "done", refused: false });
+        } else {
+          // Nothing generated at all — every provider failed / was exhausted.
+          // Degrade to the cited passages we already retrieved.
+          console.warn(`[ask] generation produced no output, serving extractive fallback: ${message}`);
+          emit({ type: "delta", text: buildExtractiveAnswer(chunks) });
+          emit({ type: "done", refused: false });
+        }
         controller.close();
       }
     },
