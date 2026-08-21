@@ -28,6 +28,7 @@ jobs:
     defaults:
       run:
         working-directory: ingest
+    environment: prod
     env:
       # Supabase + embedding provider (ingest/src/ingest/config.py). Store these
       # as repository secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
