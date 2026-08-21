@@ -1,0 +1,107 @@
+name: nightly-ingest
+
+# Discover & ingest newly published NSE transcripts / annual reports for the
+# tracked companies, once a night, unattended. Logic: ingest/src/ingest/
+# check_new.py (python -m ingest.run --check-for-new).
+#
+# CRON IS UTC. 19:30 UTC == 01:00 IST — after the trading day and the evening
+# filing wave have settled. Change the one line below to move it; nothing else.
+on:
+  schedule:
+    - cron: "30 19 * * *" # 01:00 IST
+  workflow_dispatch: {}
+
+# Serialise runs so a manual dispatch can't race a scheduled one's ledger push
+# (both do commit -> pull --rebase -> push with no retry loop). Never cancel an
+# in-progress run: it may have ingested a filing but not yet recorded it in the
+# seen-ledger, and losing that record would re-ingest (harmless, but wasteful).
+concurrency:
+  group: nightly-ingest-state
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # commit the seen-ledger back to the branch
+      issues: write # open an issue if NSE access regresses
+    defaults:
+      run:
+        working-directory: ingest
+    env:
+      # Supabase + embedding provider (ingest/src/ingest/config.py). Store these
+      # as repository secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+      # CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN.
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      EMBEDDINGS_PROVIDER: cloudflare_bge
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # Pin the ledger to an unambiguous absolute repo path, so the file the
+      # code writes is EXACTLY the one the commit step commits — an editable-vs-
+      # installed package can otherwise move __file__ (the bare-runner lesson).
+      SEEN_LEDGER_PATH: ${{ github.workspace }}/ingest/state/seen_seq_ids.json
+      # For `gh` (open the access-regression issue).
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ingest/pyproject.toml
+      - run: pip install -e .
+
+      # STEP 1: assert this runner reaches BOTH NSE hosts the ingest needs — the
+      # announcements API (nseindia.com) AND the PDF archive (nsearchives). Gated
+      # PER-ENDPOINT: cloud egress can reach one and not the other. Runner access
+      # was settled by the committed probe (results/*_gha.json, both 200 on
+      # 2026-08-16) and nse-assist's notify.yml history; this guards a regression.
+      # On failure: open a GitHub issue (deduped against an already-open one) and
+      # exit nonzero — never fail silently.
+      - name: Assert NSE access from this runner (announcements + nsearchives)
+        run: |
+          if python -m ingest.run --assert-access; then
+            echo "NSE announcements + nsearchives reachable from this runner"
+          else
+            echo "::error::NSE announcements or nsearchives unreachable from this GitHub runner"
+            title="Nightly ingest: NSE unreachable from GitHub runner"
+            open=$(gh issue list --state open --search "in:title ${title}" --json number --jq 'length' 2>/dev/null || echo 0)
+            if [ "${open}" = "0" ]; then
+              gh issue create \
+                --title "${title} ($(date -u +%Y-%m-%d))" \
+                --body "The nightly-ingest access assertion failed: NSE announcements and/or nsearchives.nseindia.com did not answer from this runner's egress. No filings were ingested this run.
+
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          The gate probes BOTH hosts per-endpoint (announcements API + a real PDF download). If this persists, GitHub egress may be blocked for NSE (the Workers-spike failure mode where cloud egress gets empty bodies); compare with the manual \`probe-nse-access\` workflow, or fall back to a local ingest run. This issue auto-dedupes while open." \
+                || echo "::warning::could not open issue — failing anyway"
+            else
+              echo "an NSE-access issue is already open — not duplicating"
+            fi
+            exit 1
+          fi
+
+      - name: Check for and ingest new filings
+        run: python -m ingest.run --check-for-new
+
+      # Commit the updated seen-ledger back. Same commit-state pattern as
+      # nse-assist: plain add (the ledger is committed, not gitignored),
+      # skip-when-clean, commit BEFORE pull --rebase (rebase refuses a dirty
+      # tree), push to the running branch.
+      - name: Commit the seen-ledger
+        if: always()
+        working-directory: ${{ github.workspace }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Tolerant of absence — the ledger exists in the repo, but stay defensive.
+          [ -f ingest/state/seen_seq_ids.json ] && git add ingest/state/seen_seq_ids.json || true
+          if git diff --quiet --cached; then
+            echo "no new filings recorded — ledger unchanged"
+            exit 0
+          fi
+          git commit -m "nightly-ingest: seen-ledger $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
