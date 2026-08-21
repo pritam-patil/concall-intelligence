@@ -7,6 +7,7 @@ import { streamAsk, type Source } from "@/lib/ask";
 import { getSuggestions } from "@/lib/suggestions";
 import Markdown from "./Markdown";
 import CitationPanel, { type ActiveCitation } from "./CitationPanel";
+import { routeQuestion, type RouteChoice } from "@/lib/routing";
 
 /**
  * The chat surface: company selector, a client-side-only message history, a
@@ -23,6 +24,10 @@ type Message = {
   refused?: boolean;
   error?: string;
   streaming?: boolean;
+  /** On a user message: the company its question was auto-scoped to. */
+  scopedTo?: RouteChoice;
+  /** On an assistant message: a disambiguation prompt instead of an answer. */
+  router?: { reason: "ambiguous" | "multiple"; question: string; choices: RouteChoice[] };
 };
 
 export default function ChatShell({
@@ -54,16 +59,43 @@ export default function ChatShell({
       prev.map((m) => (m.id === id ? { ...m, ...apply(m) } : m)),
     );
 
-  async function send(question: string) {
+  async function send(question: string, forced?: RouteChoice) {
     const q = question.trim();
     if (!q || busy || disabled) return;
-
     setInput("");
+
+    // Scope resolution: an explicit dropdown selection or a forced pick (from a
+    // disambiguation) wins; otherwise route from the question text — but only
+    // when the dropdown is "All companies" (an explicit selection is honoured).
+    let scopeSymbol = forced?.symbol ?? (symbol || undefined);
+    let scopedTo: RouteChoice | undefined = forced;
+
+    if (!forced && !symbol) {
+      const decision = routeQuestion(q, companies);
+      if (decision.kind === "scope") {
+        scopeSymbol = decision.company.symbol;
+        scopedTo = decision.company;
+      } else if (decision.kind === "choose") {
+        // Ambiguous / multi-company — ask the user to pick; don't answer yet.
+        setMessages((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), role: "user", content: q },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: "",
+            router: { reason: decision.reason, question: q, choices: decision.choices },
+          },
+        ]);
+        return;
+      }
+    }
+
     const userId = crypto.randomUUID();
     const botId = crypto.randomUUID();
     setMessages((prev) => [
       ...prev,
-      { id: userId, role: "user", content: q },
+      { id: userId, role: "user", content: q, scopedTo },
       { id: botId, role: "assistant", content: "", streaming: true },
     ]);
     setBusy(true);
@@ -72,7 +104,7 @@ export default function ChatShell({
     abortRef.current = controller;
     try {
       await streamAsk(
-        { question: q, symbol: symbol || undefined },
+        { question: q, symbol: scopeSymbol },
         (event) => {
           if (event.type === "sources") patch(botId, () => ({ sources: event.sources }));
           else if (event.type === "delta") patch(botId, (m) => ({ content: m.content + event.text }));
@@ -165,9 +197,34 @@ export default function ChatShell({
           <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-5">
             {messages.map((m) =>
               m.role === "user" ? (
-                <div key={m.id} className="flex justify-end">
+                <div key={m.id} className="flex flex-col items-end gap-1">
                   <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-zinc-900 px-3.5 py-2 text-sm text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900">
                     {m.content}
+                  </div>
+                  {m.scopedTo && (
+                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                      Auto-scoped to {m.scopedTo.symbol} — {m.scopedTo.name}
+                    </span>
+                  )}
+                </div>
+              ) : m.router ? (
+                <div key={m.id} className="flex flex-col gap-2">
+                  <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                    {m.router.reason === "ambiguous"
+                      ? "Which company did you mean?"
+                      : "I can answer about one company at a time in this version — which one should I use?"}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {m.router.choices.map((c) => (
+                      <button
+                        key={c.symbol}
+                        type="button"
+                        onClick={() => send(m.router!.question, c)}
+                        className="rounded-lg border border-black/15 px-3 py-1.5 text-left text-sm transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"
+                      >
+                        <span className="font-medium">{c.symbol}</span> — {c.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
               ) : (
