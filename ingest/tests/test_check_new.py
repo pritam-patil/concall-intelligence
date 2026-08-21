@@ -15,6 +15,7 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+import requests
 
 from ingest import check_new
 
@@ -144,6 +145,19 @@ def test_discover_new_dedupes_within_run(monkeypatch):
     monkeypatch.setattr(check_new, "announcements_for", lambda *a, **k: _outcome([dup, dict(dup)]))
     docs = check_new.discover_new(None, ["TCS"], date(2026, 8, 1), date(2026, 8, 21), seen=set())
     assert len(docs) == 1  # the same seq_id twice collapses to one
+
+
+def test_assert_access_cli_reports_connection_error_cleanly(monkeypatch, capsys):
+    # A connection reset while priming the session must yield a clean
+    # UNREACHABLE line + exit 1, not a raw traceback (the real CI failure mode).
+    def boom():
+        raise requests.ConnectionError("Connection reset by peer")
+
+    monkeypatch.setattr(check_new, "nse_session", boom)
+    assert check_new.assert_access_cli() == 1
+    out = capsys.readouterr().out
+    assert "UNREACHABLE" in out
+    assert "Traceback" not in out
 
 
 def test_discover_new_skips_a_failed_symbol(monkeypatch):

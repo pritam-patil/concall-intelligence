@@ -84,6 +84,18 @@ jobs:
             exit 1
           fi
 
+      # Access recovered (the gate above passed): close any open access issue the
+      # gate previously filed, so it doesn't linger stale. Runs only when the gate
+      # succeeds — a later ingest hiccup doesn't reopen an ACCESS issue.
+      - name: Close any open NSE-access issue (access recovered)
+        run: |
+          title="Nightly ingest: NSE unreachable from GitHub runner"
+          for n in $(gh issue list --state open --search "in:title ${title}" --json number --jq '.[].number'); do
+            gh issue close "$n" \
+              --comment "NSE access recovered — run ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} reached both hosts. Auto-closed." \
+              && echo "closed #$n"
+          done
+
       - name: Check for and ingest new filings
         run: python -m ingest.run --check-for-new
 
