@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEmbeddingsProvider } from "@/lib/providers/embeddings";
 import { getServiceRoleClient } from "@/lib/supabase";
+import { MAX_QUESTION_CHARS, checkRateLimit, clientIp, rateLimitMessage } from "@/lib/guard";
 
 /**
  * POST /api/search — semantic + keyword hybrid search over chunks, with
@@ -57,6 +58,19 @@ export async function POST(req: NextRequest) {
       { error: `mode must be one of ${[...MODES].join(", ")}` },
       { status: 400 },
     );
+  }
+
+  // Abuse guardrails before spending an embedding call: length cap + per-IP
+  // daily cap (shared with /api/ask — see web/src/lib/guard.ts).
+  if (query.length > MAX_QUESTION_CHARS) {
+    return NextResponse.json(
+      { error: `Your query is too long (${query.length} characters). Please keep it under ${MAX_QUESTION_CHARS} characters.` },
+      { status: 413 },
+    );
+  }
+  const rate = await checkRateLimit(clientIp(req));
+  if (!rate.allowed) {
+    return NextResponse.json({ error: rateLimitMessage(rate.limit) }, { status: 429 });
   }
 
   const embeddings = getEmbeddingsProvider();
