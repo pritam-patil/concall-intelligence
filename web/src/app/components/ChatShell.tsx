@@ -275,6 +275,11 @@ export default function ChatShell({
                       ))}
                     </div>
                   )}
+                  {!m.streaming && m.content && (
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                      Informational only — not investment advice.
+                    </p>
+                  )}
                 </div>
               ),
             )}
@@ -291,6 +296,8 @@ export default function ChatShell({
             onKeyDown={onKeyDown}
             rows={1}
             disabled={disabled}
+            // Soft UX cap; the server (guard.ts MAX_QUESTION_CHARS) is authoritative.
+            maxLength={1000}
             placeholder={
               selected ? `Ask about ${selected.name}…` : "Ask about any covered company…"
             }
