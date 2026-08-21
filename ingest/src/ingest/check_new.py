@@ -42,6 +42,8 @@ import time
 from datetime import date, timedelta
 from pathlib import Path
 
+import requests
+
 from ingest import download
 from ingest.config import get_settings
 from ingest.db import get_client
@@ -224,8 +226,19 @@ def assert_access(session) -> bool:
 
 
 def assert_access_cli() -> int:
-    """`--assert-access` entrypoint: 0 if both hosts reachable, 1 otherwise."""
-    return 0 if assert_access(nse_session()) else 1
+    """`--assert-access` entrypoint: 0 if both hosts reachable, 1 otherwise.
+
+    A connection-level failure while priming the session (NSE resetting cloud
+    egress — the location-sensitive failure mode in nse_fetch) is reported as a
+    clean UNREACHABLE line, not a raw traceback: the exit code was always right,
+    but a legible message makes the opened issue and the log easier to triage.
+    """
+    try:
+        session = nse_session()
+    except requests.RequestException as exc:
+        print(f"[assert] NSE UNREACHABLE — could not prime the session ({exc})")
+        return 1
+    return 0 if assert_access(session) else 1
 
 
 # --- orchestration ------------------------------------------------------------
@@ -248,7 +261,11 @@ def run_check_for_new(since_days: int | None = None) -> int:
     settings = get_settings()
     client = get_client(settings)
     download.ensure_bucket(client)
-    session = nse_session()
+    try:
+        session = nse_session()
+    except requests.RequestException as exc:
+        print(f"[check] ABORT — could not prime NSE session ({exc})")
+        return 2
 
     # Step 1: per-endpoint access gate. In CI this also runs as its own step so
     # a failure opens an issue; running it here too keeps a direct `--check-for-
