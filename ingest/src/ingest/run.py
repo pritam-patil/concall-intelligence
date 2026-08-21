@@ -62,30 +62,35 @@ def _content_for(client, result: dict) -> bytes:
     return download.fetch_from_storage(client, result["storage_path"])
 
 
-def run_symbol(symbol: str, session, client) -> dict:
-    docs = [d for d in SEED_DOCUMENTS if d["symbol"] == symbol]
-    if not docs:
-        print(f"[run] {symbol}: no seed documents for this symbol in ingest.seeds")
-        return {
-            "documents": 0,
-            "download_errors": 0,
-            "pages": 0,
-            "chunks": 0,
-            "embed": dict(EMPTY_EMBED_COUNTS),
-        }
+def ingest_docs(docs: list[dict], session, client, *, label: str) -> dict:
+    """Run download -> extract -> chunk -> embed for a list of arbitrary
+    document dicts (each shaped like an ingest.seeds.SEED_DOCUMENTS entry:
+    {symbol, doc_type, period, source_url, nse_seq_id}). Nothing here is
+    seed-specific — this is the reusable pipeline unit shared by the seed
+    backfill (run_symbol) and the nightly delta path (ingest.check_new).
 
+    Embedding runs ONCE over all chunks (not once per document) for the reason
+    in this module's docstring. Returns the usual counts plus `processed_docs`:
+    the docs that reached the `documents` table (downloaded or dedup-skipped) —
+    the delta path records only those in its seen-ledger, so a doc that ERRORED
+    at download is retried next run rather than marked seen.
+    """
     all_chunks: list[dict] = []
     download_errors = 0
     total_pages = 0
+    ingested: list[dict] = []  # newly downloaded this run
+    skipped: list[dict] = []  # already in `documents` (dedup skip)
 
     for i, doc in enumerate(docs):
         if i > 0:
             time.sleep(DOWNLOAD_PACE_SECONDS)
 
         result = download.ingest_one(session, client, doc)
-        if result["outcome"] == "error":
+        outcome = result["outcome"]
+        if outcome == "error":
             download_errors += 1
             continue
+        (skipped if outcome == "skipped" else ingested).append(doc)
 
         content = _content_for(client, result)
         document_id = result["document_id"]
@@ -101,12 +106,12 @@ def run_symbol(symbol: str, session, client) -> dict:
                 chunk_mod.chunk_page(document_id, page_row["page"], page_row["text"])
             )
         print(
-            f"[run] {symbol} {doc['doc_type']}: {len(pages)} page(s) extracted -> "
+            f"[run] {doc['symbol']} {doc['doc_type']}: {len(pages)} page(s) extracted -> "
             f"running chunk total {len(all_chunks)}"
         )
 
     embed_counts = (
-        embed_chunks(all_chunks, label=f"{symbol} ({len(all_chunks)} chunks)")
+        embed_chunks(all_chunks, label=f"{label} ({len(all_chunks)} chunks)")
         if all_chunks
         else dict(EMPTY_EMBED_COUNTS)
     )
@@ -117,7 +122,26 @@ def run_symbol(symbol: str, session, client) -> dict:
         "pages": total_pages,
         "chunks": len(all_chunks),
         "embed": embed_counts,
+        # Split so the delta path can advance its ledger safely: skipped docs are
+        # already fully in the DB; newly-ingested docs are only "done" if their
+        # embeddings landed (embed can 429 on the shared free-tier quota).
+        "ingested_docs": ingested,
+        "skipped_docs": skipped,
     }
+
+
+def run_symbol(symbol: str, session, client) -> dict:
+    docs = [d for d in SEED_DOCUMENTS if d["symbol"] == symbol]
+    if not docs:
+        print(f"[run] {symbol}: no seed documents for this symbol in ingest.seeds")
+        return {
+            "documents": 0,
+            "download_errors": 0,
+            "pages": 0,
+            "chunks": 0,
+            "embed": dict(EMPTY_EMBED_COUNTS),
+        }
+    return ingest_docs(docs, session, client, label=symbol)
 
 
 def run(symbols: list[str] | None = None) -> dict[str, dict]:
@@ -161,7 +185,39 @@ def main(argv=None) -> int:
         dest="symbols",
         help="limit to this symbol; repeatable. Default: every symbol in ingest.seeds.",
     )
+    parser.add_argument(
+        "--check-for-new",
+        action="store_true",
+        help="nightly mode: discover & ingest NEW filings for the tracked companies "
+        "(query announcements by date range, filter transcripts/annual reports, "
+        "dedupe against the committed seq_id ledger) instead of the seed backfill.",
+    )
+    parser.add_argument(
+        "--since-days",
+        type=int,
+        default=None,
+        help="--check-for-new lookback window in days (default: check_new.DEFAULT_SINCE_DAYS).",
+    )
+    parser.add_argument(
+        "--assert-access",
+        action="store_true",
+        help="probe NSE announcements + nsearchives from this host; exit 0 if BOTH "
+        "reachable, nonzero otherwise. Step 1 of the nightly job (per-endpoint gate).",
+    )
     args = parser.parse_args(argv)
+
+    # Delta/discovery modes live in ingest.check_new (imported lazily so the
+    # seed backfill path never pulls it in, and to avoid an import cycle —
+    # check_new imports ingest_docs from this module).
+    if args.assert_access:
+        from ingest.check_new import assert_access_cli
+
+        return assert_access_cli()
+    if args.check_for_new:
+        from ingest.check_new import run_check_for_new
+
+        return run_check_for_new(since_days=args.since_days)
+
     results = run(symbols=args.symbols)
     any_failures = any(
         r["download_errors"] or r["embed"]["failed"] for r in results.values()
