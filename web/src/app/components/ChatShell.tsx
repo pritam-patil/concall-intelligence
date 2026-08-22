@@ -33,9 +33,12 @@ type Message = {
 export default function ChatShell({
   companies,
   loadError,
+  initialQuestion = "",
 }: {
   companies: Company[];
   loadError: string | null;
+  /** A question to send automatically on first render (from /chat?q=…). */
+  initialQuestion?: string;
 }) {
   const [symbol, setSymbol] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -125,6 +128,18 @@ export default function ChatShell({
       abortRef.current = null;
     }
   }
+
+  // Fire the deep-linked question exactly once. The ref (not state) guards
+  // against React 19 dev-mode double-invocation of effects re-sending it.
+  const initialSentRef = useRef(false);
+  useEffect(() => {
+    if (initialSentRef.current || !initialQuestion || disabled) return;
+    initialSentRef.current = true;
+    send(initialQuestion);
+    // `send` closes over state that is all at its initial value on mount;
+    // re-running on later changes is exactly what the ref prevents.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuestion, disabled]);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#18181b"/>
+  <!-- a quote mark over a citation underline: "cited answers" -->
+  <path d="M18 20h11v11c0 6-3 10-9 12l-2-4c3-1 5-3 5-6h-5V20zm19 0h11v11c0 6-3 10-9 12l-2-4c3-1 5-3 5-6h-5V20z" fill="#fafafa"/>
+  <rect x="18" y="48" width="30" height="3" rx="1.5" fill="#60a5fa"/>
+</svg>

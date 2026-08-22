@@ -20,6 +20,19 @@ Needs `.env.local` (copy from `.env.example`) — Supabase URL/service-role
 key, and Cloudflare account ID/API token for the embeddings provider. See
 `../ARCHITECTURE.md` for the overall design.
 
+## Pages
+
+- `/` — landing page: value proposition, covered-companies grid with live
+  per-company document counts and the latest ingestion date
+  (`src/lib/coverage.ts`), three example questions, disclaimer.
+- `/chat` — the Q&A surface. `/chat?q=<question>` auto-sends the question
+  once on load; the landing page's examples and company tiles deep-link
+  this way.
+- `src/app/icon.svg` and `src/app/opengraph-image.tsx` are picked up by
+  Next's file conventions for the favicon and `og:image`. Absolute OG URLs
+  come from `metadataBase` in `layout.tsx` (Vercel's production URL, or
+  `NEXT_PUBLIC_SITE_URL`).
+
 ## API routes
 
 ### `POST /api/search`
