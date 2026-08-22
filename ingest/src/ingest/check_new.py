@@ -252,7 +252,7 @@ def fetch_tracked_symbols(client) -> list[str]:
     return sorted(row["symbol"] for row in (resp.data or []))
 
 
-def run_check_for_new(since_days: int | None = None) -> int:
+def run_check_for_new(since_days: int | None = None, symbols: list[str] | None = None) -> int:
     """Discover, ingest, and record new filings. Returns a process exit code:
     0 on a clean run (including 'nothing new'), 2 if the access gate failed,
     1 if any discovered filing errored at download (so the run is visibly red
@@ -274,10 +274,14 @@ def run_check_for_new(since_days: int | None = None) -> int:
         print("[check] ABORT — NSE access assertion failed (see above)")
         return 2
 
-    symbols = fetch_tracked_symbols(client)
-    if not symbols:
-        print("[check] no tracked symbols in the companies table — nothing to do")
+    tracked = fetch_tracked_symbols(client)
+    if symbols:
+        wanted = {s.upper() for s in symbols}
+        tracked = [s for s in tracked if s in wanted]
+    if not tracked:
+        print("[check] no tracked symbols to check (companies table empty, or --symbol matched none)")
         return 0
+    symbols = tracked
     print(f"[check] tracked symbols: {', '.join(symbols)}")
 
     seen = load_seen()
@@ -342,10 +346,16 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--since-days", type=int, default=None, help=f"lookback window (default {DEFAULT_SINCE_DAYS})."
     )
+    parser.add_argument(
+        "--symbol",
+        action="append",
+        dest="symbols",
+        help="limit the check to these symbols; repeatable (for batched backfill). Default: all companies.",
+    )
     args = parser.parse_args(argv)
     if args.assert_access:
         return assert_access_cli()
-    return run_check_for_new(since_days=args.since_days)
+    return run_check_for_new(since_days=args.since_days, symbols=args.symbols)
 
 
 if __name__ == "__main__":

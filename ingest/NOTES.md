@@ -513,3 +513,71 @@ confidence gate rejecting obvious misses before spending one of the 20.
 # dev server up (bge embeddings, populated DB — see eval/README.md), then:
 python3 eval/smoke.py
 ```
+
+## Extraction & coverage edge cases (~20-company backfill, 2026-08-22)
+
+Extended the covered universe from 6 to **20 widely-followed NSE companies**
+(SOURCES.md §2 "Expansion batch") and backfilled their concall transcripts in
+two batches via `scripts/backfill_transcripts.py` (discover by the keyword
+recipe → download → extract → chunk → embed, deduped against the seq_id
+ledger). Result: **29 transcripts, 550 chunks, 0 download errors, 0 embed
+failures**; DB went 15→44 documents, 3,115→3,665 chunks. As required, every
+extraction failure / garbage-text case is logged below, with quick wins fixed
+now and the rest parked for a buffer burst.
+
+**Page-level extraction was clean.** `extract.flag_low_quality_pages`
+(near-empty pages, cid/replacement-char garbage) flagged **0 pages** across all
+29 transcripts — concall transcripts are digital, single-column PDFs and
+PyMuPDF extracts them faithfully. The genuine edge cases were **whole-document**,
+not per-page, which the original per-page check missed:
+
+### A. "Transcript" filings that carry no transcript body (9 docs, 4 companies)
+
+The keyword recipe matches `desc`/`attchmntText` containing "transcript", which
+also catches **Reg-30 intimation notices** ("the transcript is available on the
+Company's website at …") and scanned/weblink filings — whose attached PDF is a
+single page with no transcript content. These extracted to 1 page each:
+
+| Symbol | seq_id | Filed | PDF (page ref: **p.1, the only page**) |
+|---|---|---|---|
+| KOTAKBANK | 106710179 | 24-Jul-2026 | KOTAK_24072026181759_Transcript.pdf |
+| KOTAKBANK | 106615567 | 08-May-2026 | KMBLTAB_08052026232053_TranscriptMay2026.pdf |
+| AXISBANK | 106710529 | 24-Jul-2026 | AXISBANK1_24072026213407_SEIntimationQ1FY27EarningsCallTranscriptSigned.pdf |
+| AXISBANK | 106606566 | 30-Apr-2026 | AXISBANK1_30042026223050_SEIntimationQ4FY26EarningsCallTranscriptSigned.pdf |
+| MARUTI | 106729066 | 06-Aug-2026 | MARUTIASHISH_06082026173039_STxIntimation_Transcript_6Aug2026.pdf |
+| MARUTI | 106608801 | 04-May-2026 | MARUTIASHISH_04052026223858_Transcript_4May2026.pdf |
+| LT | 106722492 | 03-Aug-2026 | PAM_03082026181720_TranscriptJune2026.pdf |
+| LT | 106616366 | 11-May-2026 | PAM_11052026104447_TranscriptMarch2026.pdf |
+| ICICIBANK | 106708461 | 23-Jul-2026 | ICICI2022_23072026180406_NSEBSE_23072026.pdf |
+
+So **KOTAKBANK, AXISBANK, MARUTI and LT have no real transcript text ingested**
+(both/all their in-window matches are thin); ICICIBANK is fine (1 thin +
+2 real). All nine PDFs live in Storage and the DB, each contributing ~1 chunk
+of notice text.
+
+**Quick win applied:** added `extract.flag_thin_extraction` (a whole-document
+flag: `< MIN_DOC_CHARS` of body text) wired into the ingest run, so future runs
+emit `[extract-flag] … WHOLE-DOC: thin extraction …` for exactly these. Covered
+by a unit test.
+
+**Parked** (buffer burst): actually *getting* these transcripts — most are
+available at a web link the intimation names, or as a later/differently-worded
+filing — and deciding whether to exclude or delete the 9 notice-only docs so
+they don't dilute retrieval. Not fixed now.
+
+### B. ITC — 0 transcript matches (keyword blind spot)
+
+ITC returned 38 announcements in the 150-day window, **none** whose
+`desc`/`attchmntText` contains "transcript" — so ITC has 0 documents ingested.
+Either it files earnings material under wording the recipe misses, or it hadn't
+filed one in the window. **Parked:** widen the recipe (e.g. "earnings call",
+"conference call", "analyst") and/or inspect ITC's actual filing labels.
+
+### C. Annual-report keyword matches are noisy (annual reports parked)
+
+The recipe's "annual report" matches on the announcements feed surface AGM
+notices, newspaper-publication intimations, and "letter to shareholders"
+filings (SBIN `PostDispatchNotice`, BHARTIARTL `StxNewspaper…`, MARUTI
+`…WebLink`), not the AR PDF. Annual reports were therefore **not** ingested this
+batch. **Parked:** wire SOURCES.md §3's dedicated `/api/annual-reports` endpoint
+into the pipeline as the real AR source.

@@ -126,6 +126,55 @@ All six URLs are covered by the PDF-access finding above (same host, same
 `/corporate/` path shape) — not independently re-verified byte-for-byte, but
 no reason expected to differ.
 
+### Expansion batch — 14 more widely-followed companies (~20 total)
+
+Taking the covered universe to ~20 widely-followed NSE large-caps. **Method
+differs from the six pilots deliberately:** a **bounded** query
+(`from_date`/`to_date`, a 150-day window ≈ the last two quarters) rather than
+full-history — these are ongoing additions the nightly job keeps fresh
+([`.github/workflows/nightly-ingest.yml`](.github/workflows/nightly-ingest.yml)),
+so the initial load only needs the recent transcripts, not every filing since
+listing. Same keyword recipe (`desc`/`attchmntText` contains "transcript").
+Discovered and ingested via
+[`ingest/scripts/backfill_transcripts.py`](ingest/scripts/backfill_transcripts.py)
+(transcripts only — see the annual-report note below).
+
+| Symbol | Company | Transcripts (150d) | Most recent transcript |
+|---|---|---|---|
+| ICICIBANK | ICICI Bank | 3 | [23-Jul-2026](https://nsearchives.nseindia.com/corporate/ICICI2022_23072026185521_NSEBSE.pdf) |
+| SBIN | State Bank of India | 2 | [13-Aug-2026](https://nsearchives.nseindia.com/corporate/SBIN_13082026185336_Transcript.pdf) |
+| BHARTIARTL | Bharti Airtel | 2 | [10-Aug-2026](https://nsearchives.nseindia.com/corporate/BHARTIARTL_10082026185505_Stx_Intimation.pdf) |
+| ITC | ITC | **0** (see below) | — |
+| LT | Larsen & Toubro | 2 | [03-Aug-2026](https://nsearchives.nseindia.com/corporate/PAM_03082026181720_TranscriptJune2026.pdf) |
+| KOTAKBANK | Kotak Mahindra Bank | 2 | [24-Jul-2026](https://nsearchives.nseindia.com/corporate/KOTAK_24072026181759_Transcript.pdf) |
+| AXISBANK | Axis Bank | 2 | [24-Jul-2026](https://nsearchives.nseindia.com/corporate/AXISBANK1_24072026213407_SEIntimationQ1FY27EarningsCallTranscriptSigned.pdf) |
+| HINDUNILVR | Hindustan Unilever | 2 | [04-Aug-2026](https://nsearchives.nseindia.com/corporate/HINDUNILVR_04082026171319_SEIntimationTranscriptofEarningsCallSigned.pdf) |
+| BAJFINANCE | Bajaj Finance | 2 | [04-Aug-2026](https://nsearchives.nseindia.com/corporate/BAJFINANCE_04082026181739_BFL_Investor_Call_outcome_Transcript.pdf) |
+| MARUTI | Maruti Suzuki | 2 | [06-Aug-2026](https://nsearchives.nseindia.com/corporate/MARUTIASHISH_06082026173039_STxIntimation_Transcript_6Aug2026.pdf) |
+| SUNPHARMA | Sun Pharmaceutical | 3 | [06-Aug-2026](https://nsearchives.nseindia.com/corporate/SUNPHARMA456_06082026165829_IntimationSE20260806EarningsCallTranscriptQ1FY27_Signed.pdf) |
+| ASIANPAINT | Asian Paints | 3 | [03-Aug-2026](https://nsearchives.nseindia.com/corporate/ASIANPAINT_03082026144133_Regulation_30_Intimation_-_Transcript_for_Investor_Conference_Signed.pdf) |
+| TITAN | Titan | 2 | [11-Aug-2026](https://nsearchives.nseindia.com/corporate/TITAN_11082026225424_SEanalystcalltranscriptQ1.pdf) |
+| ULTRACEMCO | UltraTech Cement | 2 | [23-Jul-2026](https://nsearchives.nseindia.com/corporate/ULTRACEMCO1_23072026184045_SE_Letter_-_Transcript.pdf) |
+
+**~29 transcripts across the 14** (2–3 each: the last quarter or two, plus the
+occasional special/AGM call). `isin` for all 14 is from
+[`data/EQUITY_L.csv`](data/EQUITY_L.csv); rows are in
+[`supabase/seed.sql`](supabase/seed.sql).
+
+Two coverage edge cases (logged in [`ingest/NOTES.md`](ingest/NOTES.md), parked
+for a buffer burst, not fixed here):
+
+- **ITC returned 0 transcript matches** in the window — 38 announcements, none
+  whose `desc`/`attchmntText` contains "transcript". Either it files earnings
+  material under a wording the keyword recipe misses, or it hadn't filed one in
+  the window. A blind spot of the keyword approach, not a probe failure.
+- **Annual reports were NOT ingested for this batch.** The keyword recipe's
+  "annual report" matches on the announcements feed are noisy — they surface
+  AGM notices, newspaper-publication intimations, and "letter to shareholders"
+  filings (e.g. SBIN `PostDispatchNotice`, BHARTIARTL `StxNewspaper…`, MARUTI
+  `…WebLink`), not the annual-report PDF. §3's dedicated `/api/annual-reports`
+  endpoint is the right source; wiring it into the pipeline is parked.
+
 ## 3. Annual reports — dedicated API source
 
 **Question:** is `GET /api/annual-reports?index=equities&symbol=<SYM>` a
