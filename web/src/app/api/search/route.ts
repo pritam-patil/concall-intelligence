@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEmbeddingsProvider } from "@/lib/providers/embeddings";
 import { getServiceRoleClient } from "@/lib/supabase";
-import { MAX_QUESTION_CHARS, checkRateLimit, clientIp, rateLimitMessage } from "@/lib/guard";
+import { MAX_QUESTION_CHARS, checkRateLimit, clientIp, ipHash, rateLimitMessage } from "@/lib/guard";
 import { retrieveForAsk } from "@/lib/retrieval";
+import { createLogger, requestId, stopwatch } from "@/lib/log";
 
 /**
  * POST /api/search — semantic + keyword hybrid search over chunks, with
@@ -44,7 +45,12 @@ const MODES = new Set(["hybrid", "vector", "ask"]);
 const DEFAULT_TOP_K = Number(process.env.HYBRID_TOP_K ?? 10);
 const FUSION_WEIGHT = Number(process.env.HYBRID_FUSION_WEIGHT ?? 0.5);
 
+// One embedding call + two RPCs; generous next to the default 10s.
+export const maxDuration = 30;
+
 export async function POST(req: NextRequest) {
+  const log = createLogger({ route: "/api/search", request_id: requestId(req) });
+  const total = stopwatch();
   const body = await req.json().catch(() => null);
   if (!body || typeof body.query !== "string" || !body.query.trim()) {
     return NextResponse.json({ error: "query is required" }, { status: 400 });
@@ -75,13 +81,23 @@ export async function POST(req: NextRequest) {
       { status: 413 },
     );
   }
-  const rate = await checkRateLimit(clientIp(req));
+  const ip = clientIp(req);
+  const rate = await checkRateLimit(ip);
   if (!rate.allowed) {
+    log.info("search.rejected", { reason: "rate_limited", ip_hash: ipHash(ip), used: rate.used, limit: rate.limit });
     return NextResponse.json({ error: rateLimitMessage(rate.limit) }, { status: 429 });
   }
 
   const embeddings = getEmbeddingsProvider();
   const supabase = getServiceRoleClient();
+  const fields = {
+    mode,
+    symbol: symbol ?? null,
+    doc_type: doc_type ?? null,
+    period: period ?? null,
+    query_chars: query.length,
+    ip_hash: ipHash(ip),
+  };
 
   // Wrapped so a provider failure (a bad API key, a free-tier quota hit —
   // both real, both hit while building this — see ingest/NOTES.md) still
@@ -89,12 +105,15 @@ export async function POST(req: NextRequest) {
   // instead of Next.js's default unhandled-exception response, which has
   // no body a JSON API caller can parse.
   let queryVector: number[];
+  const embedTimer = stopwatch();
   try {
     [queryVector] = await embeddings.embed([query]);
   } catch (err) {
+    log.error("search.embed_failed", { ...fields, provider: embeddings.name, embed_ms: embedTimer(), err });
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: `embedding failed: ${message}` }, { status: 502 });
   }
+  const embed_ms = embedTimer();
 
   const matchCount = top_k ?? DEFAULT_TOP_K;
 
@@ -105,6 +124,14 @@ export async function POST(req: NextRequest) {
         doc_type,
         period,
       });
+      log.info("search.complete", {
+        ...fields,
+        top_k: matchCount,
+        results: r.chunks.length,
+        max_score: r.maxScore,
+        embed_ms,
+        total_ms: total(),
+      });
       return NextResponse.json({
         query,
         mode,
@@ -113,6 +140,7 @@ export async function POST(req: NextRequest) {
         results: r.chunks,
       });
     } catch (err) {
+      log.error("search.retrieval_failed", { ...fields, embed_ms, total_ms: total(), err });
       const message = err instanceof Error ? err.message : String(err);
       return NextResponse.json({ error: message }, { status: 500 });
     }
@@ -138,8 +166,16 @@ export async function POST(req: NextRequest) {
         });
 
   if (error) {
+    log.error("search.retrieval_failed", { ...fields, embed_ms, total_ms: total(), err: new Error(error.message) });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  log.info("search.complete", {
+    ...fields,
+    top_k: matchCount,
+    results: Array.isArray(data) ? data.length : null,
+    embed_ms,
+    total_ms: total(),
+  });
   return NextResponse.json({ query, mode, results: data });
 }

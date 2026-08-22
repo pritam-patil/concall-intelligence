@@ -15,9 +15,22 @@
  * produces them rather than blocking on the full completion.
  */
 
+import { logger } from "../log";
+import { pingWorkersAi, workersAiRunUrl } from "./cloudflare";
+import { GEMINI_API_BASE, pingGeminiModel } from "./gemini";
+
 export interface GenerationProvider {
+  /** Provider id as spelled in GENERATION_PROVIDER (e.g. "gemini_flash"). */
+  readonly name: string;
+  readonly model: string;
   generate(prompt: string, system?: string): Promise<string>;
   generateStream(prompt: string, system?: string): AsyncIterable<string>;
+  /**
+   * Quota-free reachability + auth probe for /api/health (a metadata call —
+   * never a generation; Gemini's also verifies the model id, Workers AI's
+   * can't — see providers/cloudflare.ts). Rejects with the reason.
+   */
+  ping(signal?: AbortSignal): Promise<void>;
 }
 
 type GeminiPayload = {
@@ -36,12 +49,20 @@ function buildPayload(prompt: string, system?: string): GeminiPayload {
 }
 
 class GeminiFlashGeneration implements GenerationProvider {
+  readonly name = "gemini_flash";
   private readonly baseUrl: string;
   private readonly apiKey: string;
 
-  constructor(apiKey: string, model: string) {
-    this.baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}`;
+  constructor(
+    apiKey: string,
+    readonly model: string,
+  ) {
+    this.baseUrl = `${GEMINI_API_BASE}/models/${model}`;
     this.apiKey = apiKey;
+  }
+
+  ping(signal?: AbortSignal): Promise<void> {
+    return pingGeminiModel(this.apiKey, this.model, signal);
   }
 
   async generate(prompt: string, system?: string): Promise<string> {
@@ -160,12 +181,21 @@ type CloudflareStreamChunk = {
  * neuron budget with embeddings — it's a fallback, not a second workhorse.
  */
 class CloudflareGeneration implements GenerationProvider {
+  readonly name = "cloudflare";
   private readonly url: string;
   private readonly apiToken: string;
 
-  constructor(accountId: string, apiToken: string, model: string) {
-    this.url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
+  constructor(
+    private readonly accountId: string,
+    apiToken: string,
+    readonly model: string,
+  ) {
+    this.url = workersAiRunUrl(accountId, model);
     this.apiToken = apiToken;
+  }
+
+  ping(signal?: AbortSignal): Promise<void> {
+    return pingWorkersAi(this.accountId, this.apiToken, signal);
   }
 
   private body(prompt: string, system: string | undefined, stream: boolean): string {
@@ -257,11 +287,28 @@ class FallbackGeneration implements GenerationProvider {
     private readonly secondary: GenerationProvider,
   ) {}
 
+  // Identity and health are the primary's; /api/health probes each member of
+  // the chain separately via getGenerationProviderChain().
+  get name(): string {
+    return this.primary.name;
+  }
+  get model(): string {
+    return this.primary.model;
+  }
+  ping(signal?: AbortSignal): Promise<void> {
+    return this.primary.ping(signal);
+  }
+
   async generate(prompt: string, system?: string): Promise<string> {
     try {
       return await this.primary.generate(prompt, system);
     } catch (err) {
-      console.warn(`[generation] primary generate failed, failing over to secondary: ${err}`);
+      logger.warn("generation.failover", {
+        mode: "generate",
+        from: this.primary.name,
+        to: this.secondary.name,
+        err,
+      });
       return this.secondary.generate(prompt, system);
     }
   }
@@ -278,7 +325,12 @@ class FallbackGeneration implements GenerationProvider {
       }
     } catch (err) {
       if (started) throw err; // committed to the primary — can't fail over mid-stream
-      console.warn(`[generation] primary stream failed before any output, failing over: ${err}`);
+      logger.warn("generation.failover", {
+        mode: "stream",
+        from: this.primary.name,
+        to: this.secondary.name,
+        err,
+      });
       yield* this.secondary.generateStream(prompt, system);
     }
   }
@@ -316,11 +368,23 @@ function buildProvider(name: string): GenerationProvider {
  * quota is spent.
  */
 export function getGenerationProvider(): GenerationProvider {
+  const [primary, fallback] = getGenerationProviderChain();
+  return fallback ? new FallbackGeneration(primary, fallback) : primary;
+}
+
+/**
+ * The configured providers as a chain — [primary] or [primary, fallback] —
+ * without the failover wrapper, so each can be inspected (and pinged by
+ * /api/health) on its own. Throws on a missing key, exactly like
+ * getGenerationProvider(): a misconfigured fallback is a deploy error, not
+ * something to paper over at request time.
+ */
+export function getGenerationProviderChain(): [GenerationProvider, GenerationProvider | null] {
   const primaryName = process.env.GENERATION_PROVIDER ?? "gemini_flash";
   const primary = buildProvider(primaryName);
   const fallbackName = process.env.GENERATION_FALLBACK_PROVIDER?.trim();
   if (fallbackName && fallbackName !== primaryName) {
-    return new FallbackGeneration(primary, buildProvider(fallbackName));
+    return [primary, buildProvider(fallbackName)];
   }
-  return primary;
+  return [primary, null];
 }
