@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import type { Source } from "@/lib/ask";
+import { docTypeLabel, type Source } from "@/lib/ask";
 
 export type ActiveCitation = { source: Source; number: number };
 
@@ -63,7 +63,7 @@ export default function CitationPanel({
               <h2 className="truncate text-sm font-semibold">{source.symbol}</h2>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              {source.doc_type} · {period} · p.{page}
+              {docTypeLabel(source.doc_type)} · {period} · p.{page}
             </p>
           </div>
           <button

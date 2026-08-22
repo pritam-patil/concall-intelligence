@@ -50,7 +50,7 @@ export default async function Chat({ searchParams }: PageProps<"/chat">) {
           </div>
           <Link
             href="/"
-            className="text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            className="shrink-0 whitespace-nowrap text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
           >
             Covered companies
           </Link>

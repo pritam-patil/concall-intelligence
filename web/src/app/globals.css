@@ -3,6 +3,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Lets native controls (the company <select>'s popup, scrollbars) follow
+     the scheme — without it the dropdown is a white panel in dark mode. */
+  color-scheme: light dark;
 }
 
 @theme inline {

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import type { Company } from "@/lib/companies";
-import { streamAsk, type Source } from "@/lib/ask";
+import { docTypeLabel, streamAsk, type Source } from "@/lib/ask";
 import { getSuggestions } from "@/lib/suggestions";
 import Markdown from "./Markdown";
 import CitationPanel, { type ActiveCitation } from "./CitationPanel";
@@ -285,7 +285,7 @@ export default function ChatShell({
                           <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500/10 px-1 text-[0.7em] font-semibold text-blue-600 dark:text-blue-400">
                             {i + 1}
                           </span>
-                          {s.symbol} · {s.doc_type} · p.{s.page ?? "?"}
+                          {s.symbol} · {docTypeLabel(s.doc_type)} · p.{s.page ?? "?"}
                         </button>
                       ))}
                     </div>
