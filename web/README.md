@@ -52,7 +52,7 @@ chunks with their source metadata. No generation step — that's `/api/ask`.
   "doc_type": "concall",     // optional: annual_report | concall | announcement
   "period": "FY2025-26",     // optional
   "top_k": 10,                // optional, default HYBRID_TOP_K env (else 10)
-  "mode": "hybrid"            // optional: "hybrid" (default) | "vector"
+  "mode": "hybrid"            // optional: "hybrid" (default) | "vector" | "ask"
 }
 // Response
 { "query": "...", "mode": "hybrid", "results": [
@@ -64,8 +64,11 @@ chunks with their source metadata. No generation step — that's `/api/ask`.
 
 `mode: "vector"` calls the earlier vector-only RPC (`match_chunks_filtered`)
 instead, for comparison — `vector_rank`/`text_rank` are only present in
-`hybrid` mode, and are `null` when a result came from only one of the two
-channels. The fusion balance between the two channels
+`hybrid`/`ask` mode, and are `null` when a result came from only one of the
+two channels. `mode: "ask"` is exactly what `/api/ask` retrieves (see that
+route below): hybrid over a keyword-shaped query, with the response also
+carrying `keyword_query` and `max_score` (the top-1 cosine the gate reads).
+The fusion balance between the two channels
 (`HYBRID_FUSION_WEIGHT`) is an env-only default, not a request field —
 see `.env.example` and `ingest/NOTES.md`'s "Hybrid retrieval" section for
 why a numbers-heavy query like "dividend per share" is exactly the case
@@ -81,11 +84,25 @@ run against.
 
 ### `POST /api/ask`
 
-Source-cited, grounded Q&A. Embeds the question, runs vector similarity
-search (`match_chunks_filtered` — a real cosine `score`, not the hybrid
-RRF RPC, because the confidence gate below needs an absolute similarity),
-and streams a Gemini answer instructed to cite every claim as
-`[doc_type, period, page]` and to answer only from the retrieved passages.
+Source-cited, grounded Q&A. Embeds the question, retrieves with
+`src/lib/retrieval.ts` — the hybrid RPC (`match_chunks_hybrid`, vector +
+full-text fused by RRF) over a **keyword-shaped** query (`src/lib/
+keywords.ts`: the question's content terms OR'd together with a few finance
+synonyms such as capex ↔ capital expenditure; a scoped question also drops
+the company's own name words), plus a concurrent top-1 `match_chunks_filtered`
+call whose cosine `score` is what the confidence gate reads (RRF scores are
+rank-based and carry no "relevant enough" meaning) — and streams a Gemini
+answer instructed to cite every claim with a numbered marker `[n]` (1-based
+into `sources`) and to answer only from the retrieved passages.
+
+Why the keyword shaping: `websearch_to_tsquery` ANDs every term, so a
+natural-language question only keyword-matches a chunk containing *all* its
+words — "What are Reliance's capital expenditure plans?" matched one
+boilerplate paragraph while the annual report's capex figure and the
+concall's capex-plan Q&A ranked #15–#78 by vector alone, and the model
+(correctly) refused. With the shaped query those passages are the top
+results. `POST /api/search` with `mode: "ask"` runs exactly this retrieval
+and echoes the shaped `keyword_query`, for debugging and for `eval/smoke.py`.
 
 ```jsonc
 // Request
@@ -105,14 +122,26 @@ passages still don't answer, the model refuses with the same phrase (system
 rule 3). The model also never gives buy/sell/hold advice (system rule 4) —
 it answers the citable facts and declines the advice part.
 
+The model-side refusal is **normalized in code**, because the smaller
+Cloudflare fallback model (which serves once Gemini's 20/day free-tier
+quota is spent) doesn't reliably stick to the phrase: it paraphrases
+("Management did not discuss X in the provided passages") and then rambles
+about adjacent passages with citations. The route holds back the opening
+sentence, and if it reads as a refusal emits exactly the phrase and drops
+the rest; a reply that ends with no `[n]` citation at all is likewise
+reported as refused on the `done` event (rule 2 makes every real answer
+carry one). The same buffer strips the fallback model's habit of echoing
+the question before answering. `eval/smoke.py`'s REFUSE control is what
+caught all three behaviours.
+
 **Response is a stream**, `Content-Type: application/x-ndjson` — one JSON
 object per line. The cited chunks arrive first so the UI can render
 citations before the answer text streams in:
 
 ```jsonc
-{"type":"sources","sources":[ /* MatchedChunk[] */ ],"max_score":0.62,"threshold":0.35}
+{"type":"sources","sources":[ /* MatchedChunk[] */ ],"max_score":0.62,"threshold":0.6}
 {"type":"delta","text":"The board recommended "}
-{"type":"delta","text":"a special interim dividend of ₹2.50 [annual_report, FY2025-26, p.276]."}
+{"type":"delta","text":"a special interim dividend of ₹2.50 [3]."}
 {"type":"done","refused":false}
 ```
 

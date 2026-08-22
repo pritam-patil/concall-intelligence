@@ -12,13 +12,13 @@
 const DEFAULT_SUGGESTIONS = [
   "What did Infosys say about its FY2025-26 revenue growth guidance?",
   "How did HDFC Bank management describe net interest margin last quarter?",
-  "What are Reliance's capital expenditure plans?",
+  "What did Reliance say about its capex plans and spending?",
 ];
 
 const BY_SYMBOL: Record<string, string[]> = {
   RELIANCE: [
     "What did management say about the O2C and retail segments?",
-    "What are Reliance's capital expenditure plans?",
+    "What did Reliance say about its capex plans and spending?",
     "What dividend did the board recommend for FY2025-26?",
   ],
   TCS: [

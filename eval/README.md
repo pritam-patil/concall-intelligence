@@ -5,18 +5,21 @@ to a running dev server, the same way any client would.
 
 ## `smoke.py`
 
-Ten hand-written questions, each tied to the concall it should be answered
-from (nine answerable across all six seed companies + one that should be
-REFUSED — nothing in the corpus covers it). For each question it:
+Eleven hand-written questions, each tied to the filing it should be
+answered from (ten answerable across the six seed companies + one that
+should be REFUSED — nothing in the corpus covers it). For each question it:
 
-1. **Retrieval / hit@5** — `POST /api/search` in `mode:"vector"` (the
-   retrieval `/api/ask` actually feeds on) and checks whether the expected
-   company's concall is in the top 5.
+1. **Retrieval / hit@5** — `POST /api/search` in `mode:"ask"` (exactly the
+   retrieval `/api/ask` feeds on: hybrid vector + keyword-shaped full-text,
+   see `web/src/lib/retrieval.ts`) and checks whether the expected company
+   is in the top 5. The response's `max_score` — the top-1 cosine the
+   confidence gate reads — feeds the threshold sweep.
 2. **Generation / citations** — `POST /api/ask`, consumes the NDJSON
-   stream, and checks the answer carries `[doc_type, period, page]`
-   citations whose pages are **grounded** (they appear among the chunks the
-   endpoint actually retrieved — i.e. not invented) and that at least one
-   citation lands in the **expected** company's document.
+   stream, and checks the answer carries numbered `[n]` citations (1-based
+   into the `sources` event, as the UI renders them) that are **grounded**
+   (every `n` indexes a chunk the endpoint actually retrieved — i.e. not
+   invented) and that at least one citation lands in the **expected**
+   company's document.
 
 It prints a results table, a hit@5 / verdict summary, and an offline
 **threshold sweep** — for candidate `ASK_SIMILARITY_THRESHOLD` values, how
@@ -29,6 +32,21 @@ The questions are grounded in the **real** seed concalls — each was written
 against actual chunk content (e.g. Infosys's transcript really does report
 attrition at 13%, Tata Motors PV really did announce a ₹3/share dividend),
 not guessed.
+
+### Which generation provider answered matters
+
+The answerable questions pass on either provider, but the REFUSE control is
+only reliable on the primary model. Once Gemini's free tier (20 requests/
+day) is spent, `/api/ask` fails over to the Cloudflare fallback
+(`llama-3.1-8b-instruct`), which — even with the ANSWER:/NOT_FOUND verdict
+protocol in the prompt — will, roughly one run in three, tag a decorated
+refusal as an answer and cite an adjacent passage ("did not discuss
+cryptocurrency… however, management mentioned token cost [1]"). That is a
+FAIL by this eval's rules, and correctly so: it is the fallback model's
+judgment, not a retrieval or parsing bug. The dev server log says which
+provider served each request (`[generation] … failing over`), so read a
+REFUSE-control FAIL together with that. Run the eval early in the (Pacific)
+day if you want a clean primary-model run.
 
 ### Prerequisites
 
