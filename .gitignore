@@ -29,3 +29,4 @@ ingest/build/
 
 # Python (eval/)
 eval/__pycache__/
+.vercel

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getEmbeddingsProvider } from "@/lib/providers/embeddings";
 import { getGenerationProvider } from "@/lib/providers/generation";
 import { getServiceRoleClient } from "@/lib/supabase";
-import { checkRateLimit, clientIp, rateLimitMessage, validateQuestion } from "@/lib/guard";
+import { checkRateLimit, clientIp, ipHash, rateLimitMessage, validateQuestion } from "@/lib/guard";
 import { retrieveForAsk, type RetrievedChunk } from "@/lib/retrieval";
+import { createLogger, requestId, stopwatch } from "@/lib/log";
 
 /**
  * POST /api/ask — source-cited, grounded Q&A over NSE filings and
@@ -42,6 +43,11 @@ import { retrieveForAsk, type RetrievedChunk } from "@/lib/retrieval";
  */
 
 const DOC_TYPES = new Set(["annual_report", "concall", "announcement"]);
+
+// Embedding + retrieval + a streamed generation (with up to three connect
+// retries and a failover) can run well past Vercel's 10s default; 60s is
+// within the Hobby plan's ceiling with or without Fluid compute.
+export const maxDuration = 60;
 
 const DEFAULT_TOP_K = Number(process.env.ASK_TOP_K ?? 8);
 // Cosine similarity (1 - distance) of the single best chunk must clear this
@@ -153,6 +159,8 @@ function buildExtractiveAnswer(chunks: MatchedChunk[]): string {
 }
 
 export async function POST(req: NextRequest) {
+  const log = createLogger({ route: "/api/ask", request_id: requestId(req) });
+  const total = stopwatch();
   const body = await req.json().catch(() => null);
   if (!body || typeof body.question !== "string" || !body.question.trim()) {
     return NextResponse.json({ error: "question is required" }, { status: 400 });
@@ -171,12 +179,20 @@ export async function POST(req: NextRequest) {
 
   // Abuse guardrails, before any embedding/LLM spend: input length + injection
   // rejection, then a per-IP daily cap.
+  const ip = clientIp(req);
   const rejection = validateQuestion(question);
   if (rejection) {
+    log.info("ask.rejected", {
+      reason: rejection.status === 413 ? "too_long" : "injection",
+      status: rejection.status,
+      ip_hash: ipHash(ip),
+      question_chars: question.length,
+    });
     return NextResponse.json({ error: rejection.error }, { status: rejection.status });
   }
-  const rate = await checkRateLimit(clientIp(req));
+  const rate = await checkRateLimit(ip);
   if (!rate.allowed) {
+    log.info("ask.rejected", { reason: "rate_limited", status: 429, ip_hash: ipHash(ip), used: rate.used, limit: rate.limit });
     return NextResponse.json({ error: rateLimitMessage(rate.limit) }, { status: 429 });
   }
 
@@ -184,18 +200,35 @@ export async function POST(req: NextRequest) {
   const generation = getGenerationProvider();
   const supabase = getServiceRoleClient();
 
+  // The fields every terminal log line for this request carries. The
+  // question is kept (truncated) — it's the single most useful thing when
+  // diagnosing a bad answer or a false refusal; the IP is hashed.
+  const fields = {
+    symbol: symbol ?? null,
+    doc_type: doc_type ?? null,
+    period: period ?? null,
+    top_k: top_k ?? DEFAULT_TOP_K,
+    question_chars: question.length,
+    question: question.length > 160 ? `${question.slice(0, 160)}…` : question,
+    ip_hash: ipHash(ip),
+  };
+
   // Pre-flight (embedding + retrieval) happens before the stream, so these
   // failures can still be honest HTTP errors rather than in-band events.
   let queryVector: number[];
+  const embedTimer = stopwatch();
   try {
     [queryVector] = await embeddings.embed([question]);
   } catch (err) {
+    log.error("ask.embed_failed", { ...fields, provider: embeddings.name, embed_ms: embedTimer(), err });
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: `embedding failed: ${message}` }, { status: 502 });
   }
+  const embed_ms = embedTimer();
 
   let chunks: MatchedChunk[];
   let maxScore: number;
+  const retrieveTimer = stopwatch();
   try {
     ({ chunks, maxScore } = await retrieveForAsk(
       supabase,
@@ -205,9 +238,11 @@ export async function POST(req: NextRequest) {
       { symbol, doc_type, period },
     ));
   } catch (err) {
+    log.error("ask.retrieval_failed", { ...fields, embed_ms, retrieve_ms: retrieveTimer(), err });
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
+  const retrieve_ms = retrieveTimer();
 
   // maxScore is the top-1 cosine similarity (vector channel), not the fused
   // score of chunks[0] — see lib/retrieval.ts.
@@ -222,6 +257,26 @@ export async function POST(req: NextRequest) {
       // Declared out here so the catch can tell "no output at all" (→ the
       // extractive fallback) from "died mid-answer" (→ an interruption note).
       let emittedDelta = false;
+      let answer = "";
+      const generateTimer = stopwatch();
+
+      // One `ask.complete` line per request, whatever the outcome — the
+      // per-stage timings are what make a slow or failing deploy diagnosable
+      // from logs alone (embed vs. retrieve vs. generate).
+      const complete = (outcome: string, extra: Record<string, unknown> = {}) =>
+        log.info("ask.complete", {
+          ...fields,
+          outcome,
+          max_score: maxScore,
+          threshold: SIMILARITY_THRESHOLD,
+          sources: chunks.length,
+          answer_chars: answer.length,
+          embed_ms,
+          retrieve_ms,
+          generate_ms: generateTimer(),
+          total_ms: total(),
+          ...extra,
+        });
 
       try {
         // Refusal shows no sources — "not found in the covered filings"
@@ -237,6 +292,7 @@ export async function POST(req: NextRequest) {
         if (refused) {
           emit({ type: "delta", text: REFUSAL });
           emit({ type: "done", refused: true });
+          complete("refused_threshold");
           controller.close();
           return;
         }
@@ -261,7 +317,6 @@ export async function POST(req: NextRequest) {
         //               REFUSAL phrase itself is treated like NOT_FOUND.
         // In every branch an echo of the question (a fallback-model habit) is
         // stripped from the start of the answer.
-        let answer = "";
         let opening: string | null = "";
         let refusing = false;
         let ledOutput = false; // anything non-blank emitted yet?
@@ -277,7 +332,7 @@ export async function POST(req: NextRequest) {
         const refuse = (how: string, raw: string) => {
           refusing = true;
           emittedDelta = true;
-          console.warn(`[ask] refusal (${how}): ${JSON.stringify(raw.slice(0, 160))}`);
+          log.info("ask.model_refusal", { ...fields, how, opening: raw.slice(0, 160) });
           emit({ type: "delta", text: REFUSAL });
         };
         const settleOpening = (final: boolean) => {
@@ -291,7 +346,7 @@ export async function POST(req: NextRequest) {
           if (verdict === "NOT_FOUND") return refuse("NOT_FOUND", raw);
           const body = stripQuestionEcho(tag ? raw.slice(tag[0].length) : raw, question);
           if (!tag && new RegExp(REFUSAL, "i").test(body)) return refuse("phrase", raw);
-          if (!tag) console.warn(`[ask] reply without a verdict tag: ${JSON.stringify(raw.slice(0, 80))}`);
+          if (!tag) log.warn("ask.untagged_reply", { ...fields, opening: raw.slice(0, 80) });
           emitText(body);
         };
 
@@ -311,25 +366,28 @@ export async function POST(req: NextRequest) {
         // carry at least one [n] marker, so a reply with none is not an
         // answer (an untagged refusal, or ungrounded text) — `done` says
         // refused and the UI renders it so.
-        emit({ type: "done", refused: refusing || !/\[\d+/.test(answer) });
+        const modelRefused = refusing || !/\[\d+/.test(answer);
+        emit({ type: "done", refused: modelRefused });
+        complete(modelRefused ? "refused_model" : "answered");
         controller.close();
       } catch (err) {
         // Past this point the 200 and headers are already sent — the only way
         // to react is an in-band event, not an HTTP status.
-        const message = err instanceof Error ? err.message : String(err);
         if (emittedDelta) {
           // A partial answer already streamed; generation can't be cleanly
           // restarted mid-stream, so note the interruption rather than
           // contradicting what's already on screen.
-          console.warn(`[ask] generation failed mid-stream after partial output: ${message}`);
+          log.error("ask.generation_interrupted", { ...fields, answer_chars: answer.length, err });
           emit({ type: "delta", text: "\n\n_(The answer was cut off — generation was interrupted.)_" });
           emit({ type: "done", refused: false });
+          complete("interrupted");
         } else {
           // Nothing generated at all — every provider failed / was exhausted.
           // Degrade to the cited passages we already retrieved.
-          console.warn(`[ask] generation produced no output, serving extractive fallback: ${message}`);
+          log.error("ask.generation_failed", { ...fields, err });
           emit({ type: "delta", text: buildExtractiveAnswer(chunks) });
           emit({ type: "done", refused: false });
+          complete("extractive");
         }
         controller.close();
       }

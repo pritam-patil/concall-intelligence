@@ -8,6 +8,41 @@
  * that loud at startup instead of silent. Production is left alone: a startup
  * DB probe there is neither wanted nor free.
  */
+import type { Instrumentation } from "next";
+import { logger } from "@/lib/log";
+
+/**
+ * Production error capture. Next.js calls this for every server-side error it
+ * catches — an unhandled throw in a Route Handler, a Server Component render
+ * failure, a Server Action — in both runtimes. It lands as one structured
+ * `request.error` line (see lib/log.ts) that Vercel's Runtime Logs index, with
+ * the route, the request's `x-vercel-id`, and the stack. This is the single
+ * seam to forward from if a hosted tracker (Sentry et al.) is ever added.
+ *
+ * Errors the routes handle themselves (provider failures turned into JSON
+ * errors or in-band stream events) never reach here; those are logged at
+ * their catch sites with their own event names.
+ */
+export const onRequestError: Instrumentation.onRequestError = async (err, request, context) => {
+  const digest =
+    typeof err === "object" && err !== null && "digest" in err
+      ? String((err as { digest: unknown }).digest)
+      : undefined;
+  const vercelId = request.headers["x-vercel-id"];
+  logger.error("request.error", {
+    request_id: Array.isArray(vercelId) ? vercelId[0] : vercelId,
+    method: request.method,
+    path: request.path,
+    router: context.routerKind,
+    route_path: context.routePath,
+    route_type: context.routeType,
+    render_source: context.renderSource,
+    revalidate_reason: context.revalidateReason,
+    digest,
+    err,
+  });
+};
+
 export async function register() {
   // Only the Node.js server runtime can reach the service-role client; skip
   // the edge runtime, and skip production entirely.

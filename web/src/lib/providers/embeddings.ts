@@ -13,20 +13,38 @@
  * as a test: Cloudflare's free-tier daily quota (10,000 neurons) ran out
  * from this project's own testing while building /api/search — see
  * ingest/NOTES.md.
+ *
+ * `ping()` is the quota-free reachability check /api/health runs: network +
+ * credentials, plus "does this model id still exist" where the provider's
+ * metadata API can answer that (Gemini can; Workers AI can't — see
+ * providers/cloudflare.ts), without spending an embedding call.
  */
 
+import { pingWorkersAi, workersAiRunUrl } from "./cloudflare";
+import { GEMINI_API_BASE, pingGeminiModel } from "./gemini";
+
 export interface EmbeddingsProvider {
+  /** Provider id as spelled in EMBEDDINGS_PROVIDER (e.g. "cloudflare_bge"). */
+  readonly name: string;
+  readonly model: string;
   readonly dimensions: number;
   embed(texts: string[]): Promise<number[][]>;
+  /** Cheap reachability + auth + model-existence probe; rejects with the reason. */
+  ping(signal?: AbortSignal): Promise<void>;
 }
 
 class CloudflareBgeEmbeddings implements EmbeddingsProvider {
+  readonly name = "cloudflare_bge";
   readonly dimensions = 768;
   private readonly url: string;
   private readonly headers: Record<string, string>;
 
-  constructor(accountId: string, apiToken: string, model: string) {
-    this.url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
+  constructor(
+    private readonly accountId: string,
+    private readonly apiToken: string,
+    readonly model: string,
+  ) {
+    this.url = workersAiRunUrl(accountId, model);
     this.headers = { Authorization: `Bearer ${apiToken}` };
   }
 
@@ -45,23 +63,29 @@ class CloudflareBgeEmbeddings implements EmbeddingsProvider {
     }
     return data.result.data as number[][];
   }
+
+  ping(signal?: AbortSignal): Promise<void> {
+    return pingWorkersAi(this.accountId, this.apiToken, signal);
+  }
 }
 
 class GeminiEmbeddings implements EmbeddingsProvider {
+  readonly name = "gemini";
   readonly dimensions = 768;
   private readonly url: string;
-  private readonly model: string;
-  private readonly apiKey: string;
+  private readonly modelPath: string;
 
-  constructor(apiKey: string, model: string) {
-    this.url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents`;
-    this.model = `models/${model}`;
-    this.apiKey = apiKey;
+  constructor(
+    private readonly apiKey: string,
+    readonly model: string,
+  ) {
+    this.url = `${GEMINI_API_BASE}/models/${model}:batchEmbedContents`;
+    this.modelPath = `models/${model}`;
   }
 
   async embed(texts: string[]): Promise<number[][]> {
     const requests = texts.map((text) => ({
-      model: this.model,
+      model: this.modelPath,
       content: { parts: [{ text }] },
       outputDimensionality: this.dimensions,
     }));
@@ -84,6 +108,10 @@ class GeminiEmbeddings implements EmbeddingsProvider {
       const norm = Math.sqrt(v.reduce((sum, x) => sum + x * x, 0));
       return norm ? v.map((x) => x / norm) : v;
     });
+  }
+
+  ping(signal?: AbortSignal): Promise<void> {
+    return pingGeminiModel(this.apiKey, this.model, signal);
   }
 }
 

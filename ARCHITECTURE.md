@@ -159,9 +159,43 @@ app does on its own.
 **Drift guards (so an empty/foreign store can't be silent):**
 
 - `GET /api/health` reports the connected `project_ref` and row counts for
-  `companies`, `documents`, and `chunks` (`degraded`/`error` → HTTP 503).
+  `companies`, `documents`, and `chunks`, plus a quota-free reachability ping
+  of every configured provider (`degraded`/`error` → HTTP 503). See
+  `web/README.md` for the response shape and status rules.
 - In development, `web/` warns loudly at startup (`web/src/instrumentation.ts`)
   if `companies` has zero rows or the table is missing.
+
+### 3.7 Hosting: Vercel (Hobby), functions in Tokyo
+
+**Decision:** `web/` deploys to Vercel's free Hobby tier as a Next.js project
+rooted at `web/`, with its serverless functions pinned to **`hnd1` (Tokyo)**
+(`web/vercel.json`). `ingest/` stays on GitHub Actions (§3.4) — nothing
+about it runs on Vercel.
+
+**Why Tokyo:** the canonical Supabase project (§3.6) is in AWS
+`ap-northeast-1` — established by resolving its database host's IPv6 address
+against AWS's published IP ranges, not assumed from the project's Indian
+focus. A question makes three to four sequential Supabase round trips (rate
+limit → company lookup → two retrieval RPCs), so function-to-database
+latency is the dominant fixed cost per request; co-locating removes it.
+Users anywhere still get static assets from the edge CDN.
+
+**Serverless + Supabase, deliberately over HTTP:** the web app never holds a
+Postgres connection — supabase-js speaks to PostgREST, which owns a fixed
+server-side pool. That is what makes a per-request function model safe on a
+free-tier database with a small connection ceiling; it is also why `web/`
+must not grow a direct `postgres://` dependency (if one were ever needed,
+the Supavisor transaction pooler on port 6543 is the only acceptable
+route). `web/src/lib/supabase.ts` memoises one client per function
+instance and time-boxes every call.
+
+**Observability on ₹0:** structured JSON-line logs (`web/src/lib/log.ts`)
+read through Vercel's built-in Runtime Logs, and Next.js's `onRequestError`
+hook (`web/src/instrumentation.ts`) for anything the routes don't catch
+themselves — no error-tracking SaaS, consistent with §2. The provider seams
+(§3.2, §3.3) each expose a `ping()` so `/api/health` can verify credentials
+and model ids (a retired Gemini model name has already broken the app once)
+without spending the free tiers' daily quotas.
 
 ## 4. Data flow
 

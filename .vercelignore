@@ -1,0 +1,11 @@
+# CLI deploys (`vercel` / `vercel --prod`) upload from the repo root because the
+# Vercel project's Root Directory is web/. Nothing outside web/ is built, so
+# don't upload it. Git-triggered builds clone the repo and ignore this file.
+ingest
+data
+eval
+supabase
+.github
+.claude
+.ruff_cache
+*.md

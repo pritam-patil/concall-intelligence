@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { getServiceRoleClient } from "./supabase";
+import { logger } from "./log";
 
 /**
  * Abuse guardrails for the public query endpoints: an input length cap, a
@@ -56,6 +58,15 @@ export function validateQuestion(question: string): InputRejection | null {
   return null;
 }
 
+/**
+ * A short, stable, non-reversible handle for an IP — what goes into log
+ * lines (the rate limiter stores the raw IP; logs don't need to). Enough to
+ * see "the same caller, 40 times" without writing addresses to a log drain.
+ */
+export function ipHash(ip: string): string {
+  return createHash("sha256").update(ip).digest("hex").slice(0, 12);
+}
+
 /** Best-effort client IP from proxy headers (x-forwarded-for wins on Vercel). */
 export function clientIp(req: NextRequest): string {
   const xff = req.headers.get("x-forwarded-for");
@@ -90,9 +101,7 @@ export async function checkRateLimit(ip: string): Promise<RateLimit> {
       limit: RATE_LIMIT_PER_DAY,
     };
   } catch (err) {
-    console.warn(
-      `[guard] rate-limit check failed, allowing request: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    logger.warn("guard.rate_limit_unavailable", { ip_hash: ipHash(ip), err });
     return { allowed: true, used: 0, limit: RATE_LIMIT_PER_DAY };
   }
 }
