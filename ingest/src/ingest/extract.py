@@ -169,6 +169,74 @@ def _extract_open_doc(doc, document_id) -> list[dict]:
     return rows
 
 
+# --- extraction-quality flagging (edge-case surfacing) ------------------------
+
+# A page with fewer real characters than this extracted almost no text — an
+# image/scanned page, a full-page chart, or a cover. For a text filing that's an
+# extraction FAILURE worth logging, not a normal page.
+MIN_PAGE_CHARS = 20
+# PyMuPDF emits "(cid:NNN)" when a font carries no unicode cmap, and U+FFFD for
+# undecodable bytes — both are garbled text, not content.
+_CID_RE = re.compile(r"\(cid:\d+\)")
+_REPLACEMENT_CHAR = "�"
+MAX_GARBLE_RATIO = 0.02  # >2% replacement chars = encoding garbage
+
+
+def flag_low_quality_pages(rows: list[dict]) -> list[dict]:
+    """Pages whose extracted text looks like an extraction FAILURE, not content:
+    near-empty (image/scan) or font/encoding garbage (cid/replacement chars).
+
+    Deliberately conservative — legitimate dense tables (low alphabetic ratio but
+    real numbers) are NOT flagged, only clear failures — so the edge-case log
+    stays precise. Returns {page, reason, detail} dicts for the caller to log
+    against the source PDF.
+    """
+    flagged: list[dict] = []
+    for row in rows:
+        text = row["text"]
+        stripped = "".join(text.split())
+        n = len(stripped)
+        if n < MIN_PAGE_CHARS:
+            flagged.append(
+                {"page": row["page"], "reason": "near-empty (image/scan/chart page)", "detail": f"{n} chars"}
+            )
+            continue
+        cid = len(_CID_RE.findall(text))
+        garble = text.count(_REPLACEMENT_CHAR)
+        if cid or garble / n > MAX_GARBLE_RATIO:
+            flagged.append(
+                {
+                    "page": row["page"],
+                    "reason": "font/encoding garbage (cid or replacement chars)",
+                    "detail": f"{cid} cid marker(s), {garble} replacement char(s)",
+                }
+            )
+    return flagged
+
+
+# A real transcript or annual report runs to many thousands of characters. A
+# "transcript" that extracts to almost nothing is a whole-document failure the
+# per-page check misses: a 1-page Reg-30 intimation ("transcript available on
+# our website") filed in place of the transcript, or a scanned/image PDF whose
+# lone text page carries only a letterhead.
+MIN_DOC_CHARS = 2000
+
+
+def flag_thin_extraction(rows: list[dict]) -> dict | None:
+    """Doc-level flag: the whole document extracted to too little text to be the
+    real thing. Returns a {reason, detail} dict or None. Complements the
+    per-page flag_low_quality_pages (a 1-page intimation has real text on that
+    page, so it isn't near-empty — but the DOCUMENT is still empty of content)."""
+    total = sum(len("".join(row["text"].split())) for row in rows)
+    if total < MIN_DOC_CHARS:
+        return {
+            "reason": "thin extraction (little/no body text — likely an intimation notice "
+            "or scanned images filed in place of the document)",
+            "detail": f"{len(rows)} page(s), {total} chars total",
+        }
+    return None
+
+
 def write_jsonl(rows: list[dict], out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:

@@ -28,7 +28,26 @@ insert into companies (symbol, name, isin, industry) values
   ('HDFCBANK',   'HDFC Bank Limited',                        'INE040A01034', 'Banks'),
   ('INFY',       'Infosys Limited',                          'INE009A01021', 'Computers - Software'),
   ('TMCV',       'Tata Motors Limited',                      'INE1TAE01010', null),
-  ('TMPV',       'Tata Motors Passenger Vehicles Limited',   'INE155A01022', null)
+  ('TMPV',       'Tata Motors Passenger Vehicles Limited',   'INE155A01022', null),
+  -- Expansion batch (SOURCES.md §2): 14 more widely-followed NSE large-caps,
+  -- taking the covered universe to ~20. isin from data/EQUITY_L.csv (same
+  -- source and reasoning as above). industry left null for this batch — not
+  -- yet read from a live smIndustry row (parked for a buffer burst; the six
+  -- pilot rows were), consistent with "measured, not assumed".
+  ('ICICIBANK',  'ICICI Bank Limited',                       'INE090A01021', null),
+  ('SBIN',       'State Bank of India',                      'INE062A01020', null),
+  ('BHARTIARTL', 'Bharti Airtel Limited',                    'INE397D01024', null),
+  ('ITC',        'ITC Limited',                              'INE154A01025', null),
+  ('LT',         'Larsen & Toubro Limited',                  'INE018A01030', null),
+  ('KOTAKBANK',  'Kotak Mahindra Bank Limited',              'INE237A01036', null),
+  ('AXISBANK',   'Axis Bank Limited',                        'INE238A01034', null),
+  ('HINDUNILVR', 'Hindustan Unilever Limited',               'INE030A01027', null),
+  ('BAJFINANCE', 'Bajaj Finance Limited',                    'INE296A01032', null),
+  ('MARUTI',     'Maruti Suzuki India Limited',              'INE585B01010', null),
+  ('SUNPHARMA',  'Sun Pharmaceutical Industries Limited',    'INE044A01036', null),
+  ('ASIANPAINT', 'Asian Paints Limited',                     'INE021A01026', null),
+  ('TITAN',      'Titan Company Limited',                    'INE280A01028', null),
+  ('ULTRACEMCO', 'UltraTech Cement Limited',                 'INE481G01011', null)
 on conflict (symbol) do update set
   name     = excluded.name,
   isin     = excluded.isin,

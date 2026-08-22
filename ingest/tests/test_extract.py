@@ -186,3 +186,44 @@ def test_fixtures_are_exactly_one_page(fixture_name):
         assert doc.page_count == 1
     finally:
         doc.close()
+
+
+# --- flag_low_quality_pages (extraction edge-case surfacing) ------------------
+
+from ingest.extract import flag_low_quality_pages
+
+
+def _rows(*texts):
+    return [{"document_id": "d", "page": i + 1, "text": t} for i, t in enumerate(texts)]
+
+
+def test_flags_near_empty_page():
+    flags = flag_low_quality_pages(_rows("real content " * 20, "  \n  "))
+    assert [f["page"] for f in flags] == [2]
+    assert "near-empty" in flags[0]["reason"]
+
+
+def test_flags_cid_and_replacement_garbage():
+    flags = flag_low_quality_pages(_rows("(cid:12)(cid:9)(cid:44) garbled font output here"))
+    assert flags and "font/encoding garbage" in flags[0]["reason"]
+    flags2 = flag_low_quality_pages(_rows("���������� ��������� undecodable ���������"))
+    assert flags2 and "garbage" in flags2[0]["reason"]
+
+
+def test_does_not_flag_normal_prose_or_dense_tables():
+    prose = "The board recommended a dividend of eleven rupees per equity share for the year."
+    table = "1,234 5,678 9,012 3,456 7,890 12,345 67,890 11,223 44,556 78,900 10,111 22,333"
+    assert flag_low_quality_pages(_rows(prose, table)) == []
+
+
+def test_flags_thin_whole_document():
+    from ingest.extract import flag_thin_extraction
+    # A 1-page intimation ("transcript on our website") — real text, but far too
+    # little to be the transcript body.
+    intimation = _rows("This is to inform you that the transcript of the earnings call "
+                       "is available on the Company's website at www.example.com/investors.")
+    flag = flag_thin_extraction(intimation)
+    assert flag is not None and "thin extraction" in flag["reason"]
+    # A real multi-page transcript is not flagged.
+    real = _rows(*(["substantive analyst question and management answer " * 40] * 15))
+    assert flag_thin_extraction(real) is None

@@ -100,6 +100,21 @@ def ingest_docs(docs: list[dict], session, client, *, label: str) -> dict:
             tmp.flush()
             pages = extract.extract_pdf(tmp.name, document_id)
 
+        # Surface extraction edge cases (near-empty / garbled pages) against the
+        # source PDF, so failures land in the run log with a page reference —
+        # see NOTES.md's "Extraction edge cases" ledger.
+        for flag in extract.flag_low_quality_pages(pages):
+            print(
+                f"[extract-flag] {doc['symbol']} {doc['doc_type']} p.{flag['page']}: "
+                f"{flag['reason']} ({flag['detail']}) — {doc['source_url']}"
+            )
+        thin = extract.flag_thin_extraction(pages)
+        if thin:
+            print(
+                f"[extract-flag] {doc['symbol']} {doc['doc_type']} WHOLE-DOC: "
+                f"{thin['reason']} ({thin['detail']}) — {doc['source_url']}"
+            )
+
         total_pages += len(pages)
         for page_row in pages:
             all_chunks.extend(
@@ -216,7 +231,7 @@ def main(argv=None) -> int:
     if args.check_for_new:
         from ingest.check_new import run_check_for_new
 
-        return run_check_for_new(since_days=args.since_days)
+        return run_check_for_new(since_days=args.since_days, symbols=args.symbols)
 
     results = run(symbols=args.symbols)
     any_failures = any(
