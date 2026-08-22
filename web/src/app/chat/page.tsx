@@ -49,10 +49,23 @@ export default async function Chat({ searchParams }: PageProps<"/chat">) {
             </p>
           </div>
           <Link
-            href="/"
-            className="shrink-0 whitespace-nowrap text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            href="/#companies"
+            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
           >
             Covered companies
+            <svg
+              aria-hidden
+              className="h-3.5 w-3.5"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 12L12 4" />
+              <path d="M6 4h6v6" />
+            </svg>
           </Link>
         </div>
       </header>

@@ -1,19 +1,15 @@
 import Link from "next/link";
 import { getCoverage, type Coverage } from "@/lib/coverage";
+import { getSuggestions } from "@/lib/suggestions";
+import HighlightOnHash from "./components/HighlightOnHash";
 
 // Coverage is read from the database at request time (server-only env), so
 // opt out of static prerendering — same reasoning as /chat.
 export const dynamic = "force-dynamic";
 
-// Three cross-company starters. Each must be answerable from the ingested
-// corpus and name its company so /chat's router auto-scopes it (see
-// lib/routing.ts) — an unscoped "what was revenue?" would just prompt the
-// visitor to pick a company, which is a bad first impression.
-const EXAMPLE_QUESTIONS = [
-  "What did Infosys say about its FY2025-26 revenue growth guidance?",
-  "How did HDFC Bank management describe net interest margin last quarter?",
-  "What are Reliance's capital expenditure plans?",
-];
+// The same three starters the chat shows for "All companies" — one list to
+// keep answerable (see lib/suggestions.ts).
+const EXAMPLE_QUESTIONS = getSuggestions("");
 
 function chatHref(question: string) {
   return `/chat?q=${encodeURIComponent(question)}`;
@@ -93,9 +89,13 @@ export default async function Home() {
         </ul>
       </section>
 
-      {/* Covered companies */}
-      <section className="mt-14">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
+      {/* Covered companies — /#companies is the chat header's link target;
+          scroll-mt keeps the heading clear of the viewport edge on arrival. */}
+      <section id="companies" className="mt-14 scroll-mt-8">
+        <HighlightOnHash
+          hash="companies"
+          className="-mx-3 flex flex-wrap items-baseline justify-between gap-2 rounded-lg px-3 py-2"
+        >
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             Covered companies
             {companies.length > 0 && (
@@ -116,7 +116,7 @@ export default async function Home() {
               </>
             )}
           </p>
-        </div>
+        </HighlightOnHash>
 
         {companies.length > 0 && (
           <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">

@@ -22,6 +22,20 @@
   }
 }
 
+/* Arrival highlight for a section reached by fragment link (see
+   components/HighlightOnHash.tsx): a blue tint that fades out. */
+@keyframes target-flash {
+  from {
+    background-color: rgb(37 99 235 / 0.12);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.target-flash {
+  animation: target-flash 1.6s ease-out both;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
