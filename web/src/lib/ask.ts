@@ -87,3 +87,10 @@ export async function streamAsk(
   }
   flushLine(buffer); // any trailing line without a newline
 }
+
+/** Human-readable label for a `documents.doc_type` value ("annual_report"
+ * → "Annual report") for chips and the citation panel. */
+export function docTypeLabel(docType: string): string {
+  const text = docType.replace(/_/g, " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}

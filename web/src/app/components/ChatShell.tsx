@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import type { Company } from "@/lib/companies";
-import { streamAsk, type Source } from "@/lib/ask";
+import { docTypeLabel, streamAsk, type Source } from "@/lib/ask";
 import { getSuggestions } from "@/lib/suggestions";
 import Markdown from "./Markdown";
 import CitationPanel, { type ActiveCitation } from "./CitationPanel";
@@ -33,9 +33,12 @@ type Message = {
 export default function ChatShell({
   companies,
   loadError,
+  initialQuestion = "",
 }: {
   companies: Company[];
   loadError: string | null;
+  /** A question to send automatically on first render (from /chat?q=…). */
+  initialQuestion?: string;
 }) {
   const [symbol, setSymbol] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -126,6 +129,18 @@ export default function ChatShell({
     }
   }
 
+  // Fire the deep-linked question exactly once. The ref (not state) guards
+  // against React 19 dev-mode double-invocation of effects re-sending it.
+  const initialSentRef = useRef(false);
+  useEffect(() => {
+    if (initialSentRef.current || !initialQuestion || disabled) return;
+    initialSentRef.current = true;
+    send(initialQuestion);
+    // `send` closes over state that is all at its initial value on mount;
+    // re-running on later changes is exactly what the ref prevents.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuestion, disabled]);
+
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     send(input);
@@ -140,26 +155,44 @@ export default function ChatShell({
 
   return (
     <>
-      {/* Company selector */}
+      {/* Scope selector. appearance-none drops the native chevron (which sits
+          flush against the edge with no padding) for an inline SVG one. */}
       <div className="shrink-0 border-b border-black/10 dark:border-white/10">
-        <div className="mx-auto w-full max-w-2xl px-4 py-2">
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-3 px-4 py-2">
           <label htmlFor="company" className="sr-only">
             Company
           </label>
-          <select
-            id="company"
-            value={symbol}
-            onChange={(e) => setSymbol(e.target.value)}
-            disabled={companies.length === 0}
-            className="w-full rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-black/40 disabled:opacity-50 dark:border-white/15 dark:focus:border-white/40"
-          >
-            <option value="">All companies</option>
-            {companies.map((c) => (
-              <option key={c.symbol} value={c.symbol}>
-                {c.symbol} — {c.name}
-              </option>
-            ))}
-          </select>
+          <div className="relative w-full sm:w-auto">
+            <select
+              id="company"
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value)}
+              disabled={companies.length === 0}
+              className="w-full appearance-none rounded-md border border-black/15 bg-transparent py-2 pl-3 pr-9 text-sm outline-none transition-colors hover:border-black/30 focus:border-black/40 disabled:opacity-50 sm:min-w-56 dark:border-white/15 dark:hover:border-white/30 dark:focus:border-white/40"
+            >
+              <option value="">All companies</option>
+              {companies.map((c) => (
+                <option key={c.symbol} value={c.symbol}>
+                  {c.symbol} — {c.name}
+                </option>
+              ))}
+            </select>
+            <svg
+              aria-hidden
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-400"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 6l4 4 4-4" />
+            </svg>
+          </div>
+          <p className="hidden text-xs text-zinc-400 sm:block dark:text-zinc-500">
+            Or just name a company in your question.
+          </p>
         </div>
       </div>
 
@@ -173,22 +206,39 @@ export default function ChatShell({
               </p>
             ) : (
               <>
-                <p className="max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
-                  {selected
-                    ? `Ask a question about ${selected.name}’s NSE filings and earnings calls.`
-                    : "Select a company, then ask a question about its NSE filings and earnings calls."}
-                </p>
+                <div className="flex flex-col items-center gap-1">
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                    {selected
+                      ? `Ask about ${selected.name}`
+                      : `Ask about any of ${companies.length} covered companies`}
+                  </p>
+                  <p className="max-w-sm text-xs text-zinc-500 dark:text-zinc-400">
+                    Annual reports and earnings-call transcripts from NSE, with page-level
+                    citations.
+                  </p>
+                </div>
                 <div className="flex w-full max-w-md flex-col gap-2">
-                  {getSuggestions(symbol).map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => send(q)}
-                      className="rounded-lg border border-black/10 px-3 py-2 text-left text-sm text-zinc-700 transition-colors hover:bg-black/[.03] dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/[.04]"
-                    >
-                      {q}
-                    </button>
-                  ))}
+                  {getSuggestions(symbol).map((q) => {
+                    // Show which company a starter targets — only when the
+                    // scope is "All companies" (otherwise it's the selection).
+                    const decision = symbol ? null : routeQuestion(q, companies);
+                    const tag = decision?.kind === "scope" ? decision.company.symbol : null;
+                    return (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => send(q)}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-black/10 px-3 py-2 text-left text-sm text-zinc-700 transition-colors hover:bg-black/[.03] dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/[.04]"
+                      >
+                        <span>{q}</span>
+                        {tag && (
+                          <span className="shrink-0 rounded-full bg-zinc-100 px-1.5 font-mono text-[11px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                            {tag}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -270,7 +320,7 @@ export default function ChatShell({
                           <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500/10 px-1 text-[0.7em] font-semibold text-blue-600 dark:text-blue-400">
                             {i + 1}
                           </span>
-                          {s.symbol} · {s.doc_type} · p.{s.page ?? "?"}
+                          {s.symbol} · {docTypeLabel(s.doc_type)} · p.{s.page ?? "?"}
                         </button>
                       ))}
                     </div>
@@ -321,9 +371,13 @@ export default function ChatShell({
             </button>
           )}
         </form>
-        <p className="mx-auto max-w-2xl px-4 pb-2 text-center text-[11px] text-zinc-400 dark:text-zinc-600">
-          Answers are grounded in cited filings and may be incomplete. Informational only — not investment advice.
-        </p>
+        <div className="mx-auto flex max-w-2xl items-baseline justify-between gap-3 px-4 pb-2 text-[11px] text-zinc-400 dark:text-zinc-600">
+          <span className="hidden shrink-0 sm:inline">Enter to send · Shift+Enter for a new line</span>
+          <span className="mx-auto text-center sm:mx-0 sm:text-right">
+            Answers are grounded in cited filings and may be incomplete. Informational only — not
+            investment advice.
+          </span>
+        </div>
       </div>
 
       <CitationPanel citation={activeCitation} onClose={() => setActiveCitation(null)} />

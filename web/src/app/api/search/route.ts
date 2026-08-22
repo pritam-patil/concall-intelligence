@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getEmbeddingsProvider } from "@/lib/providers/embeddings";
 import { getServiceRoleClient } from "@/lib/supabase";
 import { MAX_QUESTION_CHARS, checkRateLimit, clientIp, rateLimitMessage } from "@/lib/guard";
+import { retrieveForAsk } from "@/lib/retrieval";
 
 /**
  * POST /api/search — semantic + keyword hybrid search over chunks, with
@@ -11,7 +12,7 @@ import { MAX_QUESTION_CHARS, checkRateLimit, clientIp, rateLimitMessage } from "
  *
  * Body: { query: string, symbol?: string, doc_type?: "annual_report" |
  * "concall" | "announcement", period?: string, top_k?: number (default
- * HYBRID_TOP_K env, else 10), mode?: "hybrid" (default) | "vector" }
+ * HYBRID_TOP_K env, else 10), mode?: "hybrid" (default) | "vector" | "ask" }
  *
  * Runs the query through the SAME EmbeddingsProvider ingest/ used to embed
  * the chunks (EMBEDDINGS_PROVIDER — see lib/providers/embeddings.ts and
@@ -29,10 +30,16 @@ import { MAX_QUESTION_CHARS, checkRateLimit, clientIp, rateLimitMessage } from "
  * comparison was produced. HYBRID_FUSION_WEIGHT is env-only, not a body
  * field: like every other provider/model choice in this project, it's a
  * deployment-level default, not a per-request knob — see .env.example.
+ *
+ * mode="ask" is EXACTLY the retrieval /api/ask feeds the model (lib/
+ * retrieval.ts: hybrid over a keyword-shaped query + the top-1 cosine the
+ * confidence gate reads, returned as `max_score`) — so eval/smoke.py can
+ * measure what ask sees rather than an approximation of it. The shaped
+ * keyword query is echoed back as `keyword_query` for debugging.
  */
 
 const DOC_TYPES = new Set(["annual_report", "concall", "announcement"]);
-const MODES = new Set(["hybrid", "vector"]);
+const MODES = new Set(["hybrid", "vector", "ask"]);
 
 const DEFAULT_TOP_K = Number(process.env.HYBRID_TOP_K ?? 10);
 const FUSION_WEIGHT = Number(process.env.HYBRID_FUSION_WEIGHT ?? 0.5);
@@ -90,6 +97,27 @@ export async function POST(req: NextRequest) {
   }
 
   const matchCount = top_k ?? DEFAULT_TOP_K;
+
+  if (mode === "ask") {
+    try {
+      const r = await retrieveForAsk(supabase, query, queryVector, matchCount, {
+        symbol,
+        doc_type,
+        period,
+      });
+      return NextResponse.json({
+        query,
+        mode,
+        keyword_query: r.keywordQuery,
+        max_score: r.maxScore,
+        results: r.chunks,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
   const { data, error } =
     mode === "vector"
       ? await supabase.rpc("match_chunks_filtered", {

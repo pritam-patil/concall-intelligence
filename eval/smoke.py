@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """Smoke eval for the retrieval + cited-Q&A stack.
 
-Ten hand-written questions, each with the concall it should be answered
+Eleven hand-written questions, each with the filing it should be answered
 from (or, for one, the expectation that the system REFUSES). For each:
 
-  - RETRIEVAL: POST /api/search {mode:"vector", top_k:5} and record hit@5 —
-    is the expected company's concall in the top 5? (Vector mode on purpose:
-    that's the retrieval /api/ask actually feeds on — the confidence gate
-    needs an absolute cosine score, not a hybrid RRF rank. Same
-    match_chunks_filtered RPC either way.)
+  - RETRIEVAL: POST /api/search {mode:"ask", top_k:5} and record hit@5 —
+    is the expected company in the top 5? mode "ask" is EXACTLY the
+    retrieval /api/ask feeds the model (web/src/lib/retrieval.ts: hybrid
+    vector + keyword-shaped full-text, RRF-fused) and also returns
+    `max_score`, the top-1 cosine similarity the confidence gate reads —
+    which is what the threshold sweep below uses.
   - GENERATION: POST /api/ask, consume the NDJSON stream, and check that
-    the answer carries [doc_type, period, page] citations that point at
-    REAL retrieved pages — not invented ones (the failure mode that
-    actually erodes trust). "Plausible page" here = the cited page appears
-    among the chunks /api/ask retrieved, AND at least one citation lands in
-    the expected company's document.
+    the answer carries numbered [n] citations (the format the prompt asks
+    for — n indexes the `sources` event, 1-based, same as the UI's
+    Markdown renderer) that point at REAL retrieved passages — not invented
+    ones (the failure mode that actually erodes trust). "Grounded" here =
+    every cited n is within 1..len(sources), AND at least one citation
+    lands in the expected company's document.
 
 Black-box: talks only to a running dev server (stdlib urllib, no deps).
 Requires that server up with a POPULATED database — see eval/README.md.
@@ -54,10 +56,20 @@ QUESTIONS = [
     {"q": "What is Infosys's revenue growth guidance for the year?", "expect": "INFY"},
     {"q": "What did HDFC Bank say about credit or loan growth?", "expect": "HDFCBANK"},
     {"q": "What did TCS management say about AI and clients' technology decisions?", "expect": "TCS"},
+    # Regression: vector-only retrieval buried RIL's capex passages (annual
+    # report p.44, concall p.26) under boilerplate and the model refused; the
+    # keyword channel is what surfaces them. Also the landing page's example.
+    {"q": "What did Reliance say about its capex plans and spending?", "expect": "RELIANCE"},
     {"q": "What did management say about their cryptocurrency or bitcoin strategy?", "expect": "REFUSE"},
 ]
 
-CITATION_RE = re.compile(r"\[\s*([a-z_]+)\s*,\s*([^,\]]+?)\s*,\s*p\.?\s*(\d+)\s*\]", re.IGNORECASE)
+# Numbered citation markers: [3] or [3, 5] — mirrors web/src/app/components/
+# Markdown.tsx's INLINE pattern, so the eval reads exactly what the UI links.
+CITATION_RE = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+
+
+def cited_indexes(answer: str) -> list[int]:
+    return [int(n) for group in CITATION_RE.findall(answer) for n in group.split(",")]
 
 # The exact phrase both refusal gates emit. A refusal can come from the
 # code-path confidence gate (the `refused` flag on the done event) OR from
@@ -87,9 +99,10 @@ def post_json(url: str, body: dict) -> urllib.request.addinfourl:
     )
 
 
-def retrieve_top5(query: str) -> list[dict]:
-    resp = post_json(SEARCH_URL, {"query": query, "mode": "vector", "top_k": 5})
-    return json.loads(resp.read())["results"]
+def retrieve_top5(query: str) -> tuple[list[dict], float]:
+    """(top-5 chunks in the order /api/ask would see them, top-1 cosine score)."""
+    resp = json.loads(post_json(SEARCH_URL, {"query": query, "mode": "ask", "top_k": 5}).read())
+    return resp["results"], float(resp["max_score"])
 
 
 def ask(question: str, symbol: str | None = None) -> dict:
@@ -123,9 +136,8 @@ def evaluate() -> list[dict]:
     rows = []
     for i, item in enumerate(QUESTIONS, 1):
         query, expect = item["q"], item["expect"]
-        top5 = retrieve_top5(query)
+        top5, top1_score = retrieve_top5(query)
         top5_symbols = [r["symbol"] for r in top5]
-        top1_score = top5[0]["score"] if top5 else 0.0
 
         if expect == "REFUSE":
             hit5 = None
@@ -136,23 +148,22 @@ def evaluate() -> list[dict]:
 
         scope = expect if (SCOPE_ASK_BY_SYMBOL and expect != "REFUSE") else None
         result = ask(query, symbol=scope)
-        citations = CITATION_RE.findall(result["answer"])
+        citations = cited_indexes(result["answer"])
         has_citation = len(citations) > 0
         # Refusal from EITHER gate: the done-event flag (code-path threshold)
         # or the phrase in the answer text (LLM grounding gate).
         refused = bool(result["refused"]) or (REFUSAL in result["answer"].lower())
 
-        # A cited page is "grounded" iff (doc_type, page) matches a chunk the
-        # ask endpoint actually retrieved — i.e. the model didn't invent it.
-        source_keys = {(s["doc_type"], s["page"]) for s in result["sources"]}
-        cited_keys = {(dt.lower(), int(pg)) for dt, _period, pg in citations}
-        grounded = bool(cited_keys) and cited_keys.issubset(source_keys)
+        # A citation is "grounded" iff its number indexes a chunk the ask
+        # endpoint actually retrieved — i.e. the model didn't invent one.
+        sources = result["sources"]
+        cited_set = set(citations)
+        grounded = bool(cited_set) and all(1 <= n <= len(sources) for n in cited_set)
 
         # Does at least one citation land in the EXPECTED company's document?
-        expected_source_keys = {
-            (s["doc_type"], s["page"]) for s in result["sources"] if s["symbol"] == expect
-        }
-        cited_expected = bool(cited_keys & expected_source_keys)
+        cited_expected = any(
+            1 <= n <= len(sources) and sources[n - 1]["symbol"] == expect for n in cited_set
+        )
 
         # Verdict categories: PASS (answered + grounded citation in the right
         # doc), REFUSED (safely declined — retrieval didn't surface the fact;
@@ -215,9 +226,10 @@ def print_table(rows: list[dict]) -> None:
 def print_threshold_sweep(rows: list[dict]) -> None:
     """Offline: for candidate ASK_SIMILARITY_THRESHOLD values, how many
     answerable questions would be WRONGLY refused (top1 below threshold) and
-    is the REFUSE question correctly below? The gating score is top-1 of the
-    same vector RPC /api/ask uses, so this predicts server refusal behavior
-    without restarting per threshold."""
+    is the REFUSE question correctly below? The gating score is the top-1
+    cosine similarity /api/ask's gate reads (mode "ask" returns it as
+    max_score), so this predicts server refusal behavior without restarting
+    per threshold."""
     answerable = [r for r in rows if r["expect"] != "REFUSE"]
     refuse = [r for r in rows if r["expect"] == "REFUSE"]
     ans_scores = sorted(r["top1_score"] for r in answerable)

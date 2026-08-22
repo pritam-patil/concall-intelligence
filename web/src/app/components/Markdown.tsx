@@ -21,6 +21,7 @@ import type { Source } from "@/lib/ask";
 
 type Block =
   | { type: "p"; text: string }
+  | { type: "h"; level: number; text: string }
   | { type: "ul"; items: string[] }
   | { type: "ol"; items: string[] };
 
@@ -30,6 +31,8 @@ type CiteHandler = (source: Source, number: number) => void;
 // lastIndex between calls and misfire.
 const BULLET = /^\s*[-*•]\s+/;
 const ORDERED = /^\s*\d+\.\s+/;
+// `#`…`######` headings — the model uses them to split multi-company answers.
+const HEADING = /^\s*(#{1,6})\s+(.*)$/;
 // Inline: **bold** OR a citation token [n] / [n, m, …].
 const INLINE = /\*\*([^*]+?)\*\*|\[(\d+(?:\s*,\s*\d+)*)\]/g;
 
@@ -39,7 +42,7 @@ function CitationMarker({ n, onClick }: { n: number; onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label={`Show source ${n}`}
-      className="mx-px inline-flex items-center rounded bg-blue-500/10 px-1 align-super text-[0.7em] font-semibold text-blue-600 hover:bg-blue-500/20 dark:text-blue-400"
+      className="relative -top-[0.35em] mx-px inline-flex items-center rounded bg-blue-500/10 px-1 align-baseline text-[0.7em] font-semibold leading-tight text-blue-600 hover:bg-blue-500/20 dark:text-blue-400"
     >
       {n}
     </button>
@@ -85,6 +88,12 @@ function parseBlocks(text: string): Block[] {
       i++;
       continue;
     }
+    const heading = HEADING.exec(lines[i]);
+    if (heading) {
+      blocks.push({ type: "h", level: heading[1].length, text: heading[2].trim() });
+      i++;
+      continue;
+    }
     if (BULLET.test(lines[i])) {
       const items: string[] = [];
       while (i < lines.length && BULLET.test(lines[i])) {
@@ -104,6 +113,7 @@ function parseBlocks(text: string): Block[] {
       while (
         i < lines.length &&
         lines[i].trim() !== "" &&
+        !HEADING.test(lines[i]) &&
         !BULLET.test(lines[i]) &&
         !ORDERED.test(lines[i])
       ) {
@@ -129,6 +139,21 @@ export default function Markdown({
   return (
     <div className="space-y-2">
       {blocks.map((block, i) => {
+        if (block.type === "h") {
+          // Answers sit under the page's h1, so every level renders as an h3;
+          // levels 1–2 are just a touch larger than 3+.
+          const large = block.level <= 2;
+          return (
+            <h3
+              key={i}
+              className={`pt-2 font-semibold text-zinc-900 dark:text-zinc-100 ${
+                large ? "text-base" : "text-sm"
+              }`}
+            >
+              {parseInline(block.text, sources, onCite)}
+            </h3>
+          );
+        }
         if (block.type === "ul") {
           return (
             <ul key={i} className="list-disc space-y-1 pl-5">

@@ -3,6 +3,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Lets native controls (the company <select>'s popup, scrollbars) follow
+     the scheme — without it the dropdown is a white panel in dark mode. */
+  color-scheme: light dark;
 }
 
 @theme inline {
@@ -17,6 +20,20 @@
     --background: #0a0a0a;
     --foreground: #ededed;
   }
+}
+
+/* Arrival highlight for a section reached by fragment link (see
+   components/HighlightOnHash.tsx): a blue tint that fades out. */
+@keyframes target-flash {
+  from {
+    background-color: rgb(37 99 235 / 0.12);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.target-flash {
+  animation: target-flash 1.6s ease-out both;
 }
 
 body {

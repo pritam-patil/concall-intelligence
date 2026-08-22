@@ -514,6 +514,96 @@ confidence gate rejecting obvious misses before spending one of the 20.
 python3 eval/smoke.py
 ```
 
+## Keyword-shaped hybrid retrieval for `/api/ask` (2026-08-23)
+
+### The bug
+
+The landing page's example "What are Reliance's capital expenditure plans?"
+came back "not found in the covered filings". The corpus has the answer —
+RELIANCE annual report p.44 ("RIL's capital expenditure for FY 2025-26
+stood at ₹1,44,271 crore…") and concall p.26 (the capex-plan Q&A) — but
+`/api/ask` retrieved vector-only (`match_chunks_filtered`, top-8) and bge
+ranked those passages #15 (concall p.26), #54 and #78; the top 8 were
+boilerplate (energy-efficiency programmes, CSR spend, the CIN/registered-
+office block, an AGM notice) at a flat 0.70–0.72. That clears the 0.6 gate,
+so the model got eight irrelevant passages and refused — correctly.
+
+Hybrid mode as built didn't help either: `match_chunks_hybrid` feeds the
+whole question to `websearch_to_tsquery`, which ANDs every term, so the
+only keyword match for what ∧ reliance ∧ capital ∧ expenditure ∧ plan was a
+"build globally competitive assets" paragraph — the keyword channel
+promoted a wrong passage. (The "Hybrid retrieval" section above had already
+recorded this AND-semantics limitation for a capex query.)
+
+### The fix (`web/src/lib/keywords.ts`, `web/src/lib/retrieval.ts`)
+
+- The question is shaped into an OR-of-content-terms websearch query with a
+  small finance synonym map (capex ↔ capital expenditure, NIM, PAT, EPS,
+  TCV, NPA, ROE, FCF): `"capital expenditure" OR capex OR capital OR
+  expenditure OR plans`. Stop/question words and verbs of saying are
+  dropped. Measured on the real data before wiring it in.
+- A scoped question drops the company's own name words: "reliance" is in
+  most RELIANCE chunks and `ts_rank` rewards frequency, so leaving it in
+  promoted whichever chunk said the name most (measured: including it
+  pushed every capex passage out of the top 8).
+- `/api/ask` now calls `match_chunks_hybrid` with the shaped text AND, in
+  parallel, `match_chunks_filtered` with match_count 1 — the latter's cosine
+  score is what the confidence gate reads (RRF scores are rank-based). No
+  migration: both RPCs already exist on the hosted project; a hybrid RPC
+  that also returned cosine would need `supabase db push`, which this
+  environment can't run.
+- `/api/search` gained `mode: "ask"` — exactly that retrieval, echoing the
+  shaped `keyword_query` and the gate's `max_score` — so `eval/smoke.py`
+  measures what ask sees rather than an approximation.
+
+Result for the capex question, scoped to RELIANCE: 5 of the 8 passages are
+capex-bearing, concall p.26 is #1 and annual report p.44 makes the cut;
+with the ORIGINAL phrasing p.26 rises from #15 to #2. The example was
+reworded to "What did Reliance say about its capex plans and spending?"
+(the way the filings talk about it). The Gemini answer cites the FY26 figure
+to p.44, the ~₹39,000 crore quarterly run-rate and the capex framework to
+the concall.
+
+### Generation-side findings the eval surfaced (and what was done)
+
+`eval/smoke.py` was stale — its citation regex expected the pre-Aug-21
+`[doc_type, period, p.N]` format; it now parses the numbered `[n]` markers
+the prompt asks for. The Reliance capex question was added as an 11th,
+regression question.
+
+Gemini's 20/day free-tier quota ran out part-way through, so most runs
+went through the Cloudflare fallback (`llama-3.1-8b-instruct`). That model
+doesn't follow "reply with exactly this phrase": it paraphrased the refusal
+and then rambled about adjacent passages with citations; a tightened
+wording made it hedge/refuse real answers instead (A/B'd on the INFY
+attrition question: 2/2 answered with the old wording, 1 hedge + 1 refusal
+with the tight one). What shipped:
+
+- System rule 3 is now a verdict protocol — the reply begins with
+  `ANSWER:` or `NOT_FOUND` — which small models follow better than free-form
+  phrasing; the route parses the tag and never shows it.
+- Two safe code-side rules: an opening that contains the exact refusal
+  phrase becomes the phrase alone (the rest dropped), and a reply with no
+  `[n]` citation at all is reported as `refused` on `done` (rule 2 makes
+  every real answer carry one). Paraphrase heuristics were tried and
+  REMOVED: "Reliance did not explicitly state… However, capex stood at
+  ₹1,44,271 crore [8]" (an answer) and "did not discuss crypto… However,
+  management mentioned token cost [1]" (a decorated refusal) are the same
+  shape, and a false refusal is worse than a messy one.
+- The route also strips the fallback model's habit of echoing the question.
+
+### Eval results (real runs, this dev server, hosted corpus)
+
+| run | provider | hit@5 | verdicts |
+| --- | --- | --- | --- |
+| before fix | — | capex question: REFUSED (vector rank #15) | — |
+| 1 | mostly Gemini | 10/10 | 10 PASS, 1 FAIL (control: paraphrased refusal — now caught by the no-citation rule) |
+| final | llama fallback | 10/10 | 10 PASS, 1 FAIL (control: tagged a decorated refusal as an answer, cited the "token cost" passage) |
+
+The answerable set — including the capex regression — passes on both
+providers; the REFUSE control is reliable only on the primary model (see
+`eval/README.md`, "Which generation provider answered matters").
+
 ## Extraction & coverage edge cases (~20-company backfill, 2026-08-22)
 
 Extended the covered universe from 6 to **20 widely-followed NSE companies**
