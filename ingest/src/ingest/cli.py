@@ -50,6 +50,17 @@ def download(symbols: tuple[str, ...]) -> None:
         raise SystemExit(1)
 
 
+@main.command("backfill-dating")
+@click.option("--dry-run", is_flag=True, help="Print the plan without writing.")
+def backfill_dating(dry_run: bool) -> None:
+    """Fill `filed_at` (and concall `period`) on documents ingested before
+    those were derived. Idempotent, offline — it reads only source_url. Run
+    once after applying the documents_filed_at migration."""
+    from ingest.backfill import run as run_backfill
+
+    run_backfill(dry_run=dry_run)
+
+
 @main.command()
 @click.option(
     "--symbol",

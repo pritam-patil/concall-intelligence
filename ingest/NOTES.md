@@ -67,11 +67,17 @@ bytes anyway. Re-ran clean after the fix.
 | TMPV | annual_report | FY2025-26 | 601 |
 | TMPV | concall | — | 14 |
 
-**Total: 3,039 chunks across 12 documents.** Concall `period` is blank —
-`chunk.py`'s design deliberately leaves it null for concalls rather than
-guess a quarter label from unstructured text (see `ingest/README.md`'s
-"Chunking text" section); annual reports get a real one straight from
-NSE's own `fromYr`/`toYr` fields.
+**Total: 3,039 chunks across 12 documents.** The `—` in the concall rows
+above is the state as ingested: `period` was deliberately left null rather
+than guessed from unstructured text, while annual reports got a real one
+straight from NSE's own `fromYr`/`toYr` fields.
+
+**That has since changed** — see "Dating concalls" below. Leaving the
+period null turned out to have a cost that only showed up at query time:
+`/api/ask` renders each passage's `(doc_type, period, page)` header, and a
+passage with `period=n/a` is one the model cannot answer a fiscal-year
+question from without breaking rule 1. Concalls now carry a derived
+`period` and a `filed_at`, so these rows read `Q1 FY27` / `Q4 FY26`.
 
 Annual-report chunk counts track page count closely but not 1:1 (a
 687-chunk HDFCBANK annual report was 678 pages) — most pages produce one
@@ -671,3 +677,76 @@ filings (SBIN `PostDispatchNotice`, BHARTIARTL `StxNewspaper…`, MARUTI
 `…WebLink`), not the AR PDF. Annual reports were therefore **not** ingested this
 batch. **Parked:** wire SOURCES.md §3's dedicated `/api/annual-reports` endpoint
 into the pipeline as the real AR source.
+
+## Dating concalls (`period` + `filed_at`)
+
+**The bug, as reported:** `/api/ask` answered "What did Infosys say about its
+FY2025-26 revenue growth guidance?" with the refusal phrase *and* a row of
+citation chips underneath — a contradiction on its face.
+
+Two separate defects sat behind that one screen.
+
+**1. Refusal + citations.** `/api/ask` has two refusal paths and only one
+could suppress sources. The threshold refusal is decided before the stream
+opens, so it emits `sources: []`. The model refusal (`NOT_FOUND`, or a reply
+carrying no `[n]` markers) is only known *after* the `sources` event has gone
+out — it cannot be unsent. Fixed in `ChatShell`, where the terminal `done`
+event retracts the sources when the verdict is a refusal, so both paths look
+the same.
+
+**2. The refusal was right, for the wrong reason.** Retrieval was fine —
+passages 6 and 8 say *"we are revising our revenue guidance to 1.5% to 3%"*.
+But that is from the **Q1 FY27** call (p.30: *"We entered FY27"*), so it is
+FY2026-27 guidance, and the question asked about FY2025-26. The model could
+not know that: every concall row had `period` null, so the header read
+`period=n/a` and rule 1 forbids inferring the year from outside knowledge.
+`NOT_FOUND` was correct reasoning over missing metadata — but it would have
+been the same answer if the transcript *had* been the FY2025-26 one. Dropping
+the year from the question made it answer from the very same passages.
+
+**What was done.** `ingest/src/ingest/period.py` derives a concall's period
+from two structural signals, in confidence order: an explicit `Q1FY27` /
+`"quarter ended June 30, 2026"` where the filing states one, else the filing
+date mapped to the preceding fiscal quarter. `documents.filed_at` records the
+date, and `/api/ask`'s passage header now shows both, so a period derived by
+rule can be checked against the date it came from rather than trusted blind.
+System rule 6 tells the model how to read them, and to answer NOT_FOUND when
+no passage covers the period asked about — making the Infosys case a
+principled refusal instead of an accidental one.
+
+Filing dates come from the **source URL**, not the announcements feed: NSE
+stamps `_ddmmyyyyHHMMSS_` into every archived filename, so existing rows
+backfill offline from a column they already have. Verified equal to the
+feed's own `an_dt` for all six pilot seeds.
+
+The seeds' derived periods, all cross-checked: RELIANCE/TCS/HDFCBANK/INFY
+→ `Q1 FY27` (July 2026 filings), TMCV/TMPV → `Q4 FY26` (May 2026 filings).
+RELIANCE is the one seed whose announcement prose states a period outright
+("quarter ended June 30, 2026") — the filing-date rule independently derives
+the same `Q1 FY27` for it, which is the only direct check available that the
+rule agrees with what NSE actually said.
+
+### Verified, and not
+
+Verified for real against the local Postgres 17 + pgvector + PostgREST
+stand-in (`.claude/skills/local-supabase-stack`), loaded with the twelve seed
+rows in their pre-fix state:
+
+- all six migrations apply in order, clean; `documents.filed_at` and its
+  index exist; `chunks` still HNSW + GIN, not `ivfflat`;
+- both RPCs return `filed_at` — checked on the live function signatures and
+  over real HTTP through PostgREST;
+- `uv run ingest backfill-dating` dated all 12 rows correctly, left the
+  annual reports' authoritative `FY2025-26` untouched, and is idempotent (a
+  second run plans 0 changes);
+- 111 ingest tests pass; `web/` type-checks and lints clean.
+
+**NOT verified: the change in model behaviour.** Gemini's free-tier daily
+generation quota (20/day) was exhausted while diagnosing, so the dated
+prompt was never run against the primary model. The Cloudflare fallback
+(`llama-3.1-8b`) is no substitute — asked about FY2025-26 and FY2026-27 it
+returns "1.5% to 3%" for both, with and without the dating, i.e. it echoes
+whichever year the question names. Worth flagging on its own: whenever the
+fallback is serving, answers will be confidently misdated regardless of this
+work. Re-run the FY2025-26 / FY2026-27 pair against Gemini once quota
+resets to confirm rule 6 lands.

@@ -136,8 +136,16 @@ def classify(row: dict) -> str | None:
 
 def row_to_doc(row: dict, doc_type: str) -> dict | None:
     """A SEED_DOCUMENTS-shaped dict from an announcement row, or None if it has
-    no attachment. period is left None — NSE's announcement prose doesn't carry
-    a reliably parseable period (same choice as seeds.py for concalls)."""
+    no attachment.
+
+    `period` stays None HERE and is derived at insert time by
+    download.dating_for — one derivation shared with the curated seeds and
+    the backfill, rather than three. What this function contributes is
+    `filing_text`: the announcement's own prose, which is the only place an
+    EXPLICIT period is ever stated (RELIANCE's "for the quarter ended June
+    30, 2026"; most rows are boilerplate and fall back to the filing date).
+    Carrying it costs nothing and is strictly better than the URL alone.
+    """
     url = row.get("attchmntFile")
     if not url:
         return None
@@ -147,6 +155,7 @@ def row_to_doc(row: dict, doc_type: str) -> dict | None:
         "symbol": row.get("symbol"),
         "doc_type": doc_type,
         "period": None,
+        "filing_text": f"{row.get('desc', '')} {row.get('attchmntText', '')}".strip(),
         "source_url": url,
         "nse_seq_id": nse_seq_id,
     }

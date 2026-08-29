@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { docTypeLabel, type Source } from "@/lib/ask";
+import { docTypeLabel, filedLabel, type Source } from "@/lib/ask";
 
 export type ActiveCitation = { source: Source; number: number };
 
@@ -39,6 +39,10 @@ export default function CitationPanel({
   const { source, number } = citation;
   const period = source.period ?? "n/a";
   const page = source.page ?? "n/a";
+  // The filing date is what a reader checks the reporting period against —
+  // for concalls the period is derived FROM this date (ingest/period.py), so
+  // showing only the label would hide where it came from.
+  const filed = filedLabel(source.filed_at);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -64,6 +68,7 @@ export default function CitationPanel({
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               {docTypeLabel(source.doc_type)} · {period} · p.{page}
+              {filed && <> · filed {filed}</>}
             </p>
           </div>
           <button

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import type { Company } from "@/lib/companies";
-import { docTypeLabel, streamAsk, type Source } from "@/lib/ask";
+import { docTypeLabel, filedLabel, streamAsk, type Source } from "@/lib/ask";
 import { getSuggestions } from "@/lib/suggestions";
 import Markdown from "./Markdown";
 import CitationPanel, { type ActiveCitation } from "./CitationPanel";
@@ -111,7 +111,17 @@ export default function ChatShell({
         (event) => {
           if (event.type === "sources") patch(botId, () => ({ sources: event.sources }));
           else if (event.type === "delta") patch(botId, (m) => ({ content: m.content + event.text }));
-          else if (event.type === "done") patch(botId, () => ({ streaming: false, refused: event.refused }));
+          // `done` is the terminal verdict. A refusal must show no citations —
+          // but only the threshold refusal is known before the `sources` event
+          // goes out; a model refusal (NOT_FOUND / no [n] markers) is decided
+          // after the passages have already streamed, so it can't unsend them.
+          // Retract them here instead, so both refusal paths look the same.
+          else if (event.type === "done")
+            patch(botId, () => ({
+              streaming: false,
+              refused: event.refused,
+              ...(event.refused ? { sources: [] } : {}),
+            }));
           else if (event.type === "error") patch(botId, () => ({ streaming: false, error: event.error }));
         },
         controller.signal,
@@ -315,12 +325,15 @@ export default function ChatShell({
                           type="button"
                           onClick={() => setActiveCitation({ source: s, number: i + 1 })}
                           className="inline-flex items-center gap-1.5 rounded-full border border-black/10 py-0.5 pl-1 pr-2.5 text-xs text-zinc-600 transition-colors hover:bg-black/[.04] dark:border-white/15 dark:text-zinc-400 dark:hover:bg-white/[.06]"
-                          title={s.content.slice(0, 140)}
+                          title={`${s.symbol} · ${docTypeLabel(s.doc_type)}${
+                            s.period ? ` · ${s.period}` : ""
+                          }${filedLabel(s.filed_at) ? ` · filed ${filedLabel(s.filed_at)}` : ""}\n\n${s.content.slice(0, 140)}`}
                         >
                           <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500/10 px-1 text-[0.7em] font-semibold text-blue-600 dark:text-blue-400">
                             {i + 1}
                           </span>
-                          {s.symbol} · {docTypeLabel(s.doc_type)} · p.{s.page ?? "?"}
+                          {s.symbol} · {docTypeLabel(s.doc_type)}
+                          {s.period ? ` · ${s.period}` : ""} · p.{s.page ?? "?"}
                         </button>
                       ))}
                     </div>

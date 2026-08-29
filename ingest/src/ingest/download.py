@@ -39,6 +39,7 @@ from ingest.nse_fetch import (
     fetch_binary,
     nse_session,
 )
+from ingest.period import derive_concall_period, filed_at_from_url
 from ingest.seeds import SEED_DOCUMENTS
 
 STORAGE_BUCKET = "filings"
@@ -91,6 +92,27 @@ def fetch_from_storage(client, storage_path: str) -> bytes:
     return client.storage.from_(bucket).download(object_path)
 
 
+def dating_for(doc: dict) -> tuple[str | None, str | None, str]:
+    """`(period, filed_at_iso, how)` for a document about to be inserted.
+
+    ONE place derives dating for every source — the curated seeds, the
+    nightly check-for-new discovery, and the backfill — so a concall row can
+    never end up dated by one rule here and another rule there.
+
+    An explicit `period` on the doc (annual reports carry a real structured
+    one from the /api/annual-reports feed) is authoritative and is never
+    second-guessed. Concalls, which have none, get ingest.period's derivation
+    from the filing text and the NSE filename stamp; see that module for why
+    they are datable at all after previously being left null.
+    """
+    source_url = doc["source_url"]
+    if doc.get("period"):
+        filed_at = filed_at_from_url(source_url)
+        return doc["period"], filed_at.isoformat() if filed_at else None, "given"
+    period, filed_at, how = derive_concall_period(source_url, doc.get("filing_text", ""))
+    return period, filed_at.isoformat() if filed_at else None, how
+
+
 def ingest_one(session, client, doc: dict) -> dict:
     """Download, dedup-check, upload, and insert one seed document.
 
@@ -104,8 +126,9 @@ def ingest_one(session, client, doc: dict) -> dict:
     exactly one line either way — the summary this function's docstring
     promises the caller.
     """
-    symbol, doc_type, period = doc["symbol"], doc["doc_type"], doc["period"]
+    symbol, doc_type = doc["symbol"], doc["doc_type"]
     source_url, nse_seq_id = doc["source_url"], doc["nse_seq_id"]
+    period, filed_at, dated_how = dating_for(doc)
     label = f"{symbol} {doc_type} seq={nse_seq_id if nse_seq_id is not None else '-'}"
 
     if nse_seq_id is not None:
@@ -161,6 +184,7 @@ def ingest_one(session, client, doc: dict) -> dict:
                 "symbol": symbol,
                 "doc_type": doc_type,
                 "period": period,
+                "filed_at": filed_at,
                 "source_url": source_url,
                 "storage_path": storage_path,
                 "sha256": sha256_hex,
@@ -172,8 +196,12 @@ def ingest_one(session, client, doc: dict) -> dict:
     document_id = result.data[0]["id"]
 
     redirected = "" if final_url == source_url else f", redirected -> {final_url}"
+    # `period` is printed with the signal it came from — a period derived
+    # from the filing date is a rule, not a reading, and the log is where
+    # that stays auditable (ingest.period's module docstring).
     print(
         f"[download] {label}: ingested — {len(content)} bytes, sha256={sha256_hex[:12]}…, "
+        f"period={period or '-'} (via {dated_how}), filed_at={filed_at or '-'}, "
         f"{storage_path}{redirected}"
     )
     return {

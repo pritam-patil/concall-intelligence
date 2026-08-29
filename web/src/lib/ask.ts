@@ -16,6 +16,8 @@ export type Source = {
   symbol: string;
   doc_type: string;
   period: string | null;
+  /** ISO date NSE published the filing ("2026-07-28"), or null. */
+  filed_at: string | null;
   page: number | null;
   source_url: string;
   score: number;
@@ -86,6 +88,21 @@ export async function streamAsk(
     }
   }
   flushLine(buffer); // any trailing line without a newline
+}
+
+/** Human-readable filing date ("2026-07-28" → "28 Jul 2026"), or null when
+ * the source carries no date. Parsed as UTC so the label can't slip a day in
+ * a negative-offset timezone — the value is a plain date, not an instant. */
+export function filedLabel(filedAt: string | null): string | null {
+  if (!filedAt) return null;
+  const date = new Date(`${filedAt}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-GB", {
+    timeZone: "UTC",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 /** Human-readable label for a `documents.doc_type` value ("annual_report"
