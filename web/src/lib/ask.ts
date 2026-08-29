@@ -23,6 +23,18 @@ export type Source = {
   score: number;
 };
 
+/** Provider-reported token usage for the answer, when the provider reported
+ * it (null on a refusal decided in code, and on the extractive fallback —
+ * neither spends a generation call). Mirrors the server-side type. */
+export type TokenUsage = {
+  provider: string;
+  model: string;
+  prompt: number;
+  output: number;
+  thoughts: number | null;
+  total: number;
+};
+
 export type AskRequest = {
   question: string;
   symbol?: string;
@@ -34,7 +46,7 @@ export type AskRequest = {
 export type AskEvent =
   | { type: "sources"; sources: Source[]; max_score: number; threshold: number }
   | { type: "delta"; text: string }
-  | { type: "done"; refused: boolean }
+  | { type: "done"; refused: boolean; usage: TokenUsage | null }
   | { type: "error"; error: string };
 
 /**

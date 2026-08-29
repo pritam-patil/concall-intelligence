@@ -19,12 +19,36 @@ import { logger } from "../log";
 import { pingWorkersAi, workersAiRunUrl } from "./cloudflare";
 import { GEMINI_API_BASE, pingGeminiModel } from "./gemini";
 
+/**
+ * Token usage as the PROVIDER counted it, for the most recent call.
+ *
+ * Worth plumbing rather than estimating from the prompt text: gemini-3.6-flash
+ * is a thinking model, and its reasoning tokens are billed but never appear in
+ * either the prompt or the streamed answer — no amount of counting characters
+ * on this side can see them. `thoughts` is null for providers that do not
+ * report reasoning separately.
+ */
+export type TokenUsage = {
+  provider: string;
+  model: string;
+  prompt: number;
+  output: number;
+  thoughts: number | null;
+  total: number;
+};
+
 export interface GenerationProvider {
   /** Provider id as spelled in GENERATION_PROVIDER (e.g. "gemini_flash"). */
   readonly name: string;
   readonly model: string;
   generate(prompt: string, system?: string): Promise<string>;
   generateStream(prompt: string, system?: string): AsyncIterable<string>;
+  /**
+   * What the provider said the LAST generateStream call cost, or null if it
+   * has not reported yet (no call made, or a provider/model that omits usage
+   * from its stream). Read AFTER the stream is fully consumed.
+   */
+  lastUsage(): TokenUsage | null;
   /**
    * Quota-free reachability + auth probe for /api/health (a metadata call —
    * never a generation; Gemini's also verifies the model id, Workers AI's
@@ -52,6 +76,7 @@ class GeminiFlashGeneration implements GenerationProvider {
   readonly name = "gemini_flash";
   private readonly baseUrl: string;
   private readonly apiKey: string;
+  private usage: TokenUsage | null = null;
 
   constructor(
     apiKey: string,
@@ -63,6 +88,10 @@ class GeminiFlashGeneration implements GenerationProvider {
 
   ping(signal?: AbortSignal): Promise<void> {
     return pingGeminiModel(this.apiKey, this.model, signal);
+  }
+
+  lastUsage(): TokenUsage | null {
+    return this.usage;
   }
 
   async generate(prompt: string, system?: string): Promise<string> {
@@ -150,6 +179,20 @@ class GeminiFlashGeneration implements GenerationProvider {
           } catch {
             continue; // a partial JSON line shouldn't happen post line-split, but never throw mid-stream
           }
+          // usageMetadata rides along on the frames (cumulative, so the
+          // last one seen is the total) — the only place the billed
+          // thinking tokens are ever visible.
+          const meta = (parsed as GeminiStreamChunk)?.usageMetadata;
+          if (meta) {
+            this.usage = {
+              provider: this.name,
+              model: this.model,
+              prompt: meta.promptTokenCount ?? 0,
+              output: meta.candidatesTokenCount ?? 0,
+              thoughts: meta.thoughtsTokenCount ?? null,
+              total: meta.totalTokenCount ?? 0,
+            };
+          }
           const text = (parsed as GeminiStreamChunk)?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) yield text;
         }
@@ -162,6 +205,12 @@ class GeminiFlashGeneration implements GenerationProvider {
 
 type GeminiStreamChunk = {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    thoughtsTokenCount?: number;
+    totalTokenCount?: number;
+  };
 };
 
 // Workers AI text models vary in wire shape: older ones stream
@@ -171,6 +220,7 @@ type GeminiStreamChunk = {
 type CloudflareStreamChunk = {
   response?: string;
   choices?: { delta?: { content?: string } }[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 };
 
 /**
@@ -184,6 +234,7 @@ class CloudflareGeneration implements GenerationProvider {
   readonly name = "cloudflare";
   private readonly url: string;
   private readonly apiToken: string;
+  private usage: TokenUsage | null = null;
 
   constructor(
     private readonly accountId: string,
@@ -196,6 +247,10 @@ class CloudflareGeneration implements GenerationProvider {
 
   ping(signal?: AbortSignal): Promise<void> {
     return pingWorkersAi(this.accountId, this.apiToken, signal);
+  }
+
+  lastUsage(): TokenUsage | null {
+    return this.usage;
   }
 
   private body(prompt: string, system: string | undefined, stream: boolean): string {
@@ -262,6 +317,19 @@ class CloudflareGeneration implements GenerationProvider {
             continue;
           }
           const chunk = parsed as CloudflareStreamChunk;
+          // The OpenAI-compatible models close with a usage frame; older
+          // `{response}` models send none, so usage stays null for those.
+          const u = chunk?.usage;
+          if (u) {
+            this.usage = {
+              provider: this.name,
+              model: this.model,
+              prompt: u.prompt_tokens ?? 0,
+              output: u.completion_tokens ?? 0,
+              thoughts: null,
+              total: u.total_tokens ?? (u.prompt_tokens ?? 0) + (u.completion_tokens ?? 0),
+            };
+          }
           const text = chunk?.choices?.[0]?.delta?.content ?? chunk?.response;
           if (text) yield text;
         }
@@ -282,6 +350,9 @@ class CloudflareGeneration implements GenerationProvider {
  * GENERATION_PROVIDER flip deliberately isn't.
  */
 class FallbackGeneration implements GenerationProvider {
+  /** The member that served the most recent call — what lastUsage() reads. */
+  private served: GenerationProvider | null = null;
+
   constructor(
     private readonly primary: GenerationProvider,
     private readonly secondary: GenerationProvider,
@@ -299,10 +370,18 @@ class FallbackGeneration implements GenerationProvider {
     return this.primary.ping(signal);
   }
 
+  // Usage belongs to whichever member actually produced the last answer, so
+  // a failed-over request is costed against the fallback, not the primary.
+  lastUsage(): TokenUsage | null {
+    return this.served?.lastUsage() ?? null;
+  }
+
   async generate(prompt: string, system?: string): Promise<string> {
     try {
+      this.served = this.primary;
       return await this.primary.generate(prompt, system);
     } catch (err) {
+      this.served = this.secondary;
       logger.warn("generation.failover", {
         mode: "generate",
         from: this.primary.name,
@@ -314,6 +393,7 @@ class FallbackGeneration implements GenerationProvider {
   }
 
   async *generateStream(prompt: string, system?: string): AsyncIterable<string> {
+    this.served = this.primary;
     const iterator = this.primary.generateStream(prompt, system)[Symbol.asyncIterator]();
     let started = false;
     try {
@@ -325,6 +405,7 @@ class FallbackGeneration implements GenerationProvider {
       }
     } catch (err) {
       if (started) throw err; // committed to the primary — can't fail over mid-stream
+      this.served = this.secondary;
       logger.warn("generation.failover", {
         mode: "stream",
         from: this.primary.name,

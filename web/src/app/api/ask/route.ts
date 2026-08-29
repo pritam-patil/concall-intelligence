@@ -4,6 +4,8 @@ import { getGenerationProvider } from "@/lib/providers/generation";
 import { getServiceRoleClient } from "@/lib/supabase";
 import { checkRateLimit, clientIp, ipHash, rateLimitMessage, validateQuestion } from "@/lib/guard";
 import { retrieveForAsk, type RetrievedChunk } from "@/lib/retrieval";
+import { capContext } from "@/lib/context";
+import { embedQuery, queryCacheStats } from "@/lib/querycache";
 import { createLogger, requestId, stopwatch } from "@/lib/log";
 
 /**
@@ -72,6 +74,21 @@ const DEFAULT_TOP_K = Number(process.env.ASK_TOP_K ?? 8);
 // (the Gemini free tier is 20 generations/day — see NOTES), at the cost of a
 // thin false-refusal margin. Retune per embedding model via env.
 const SIMILARITY_THRESHOLD = Number(process.env.ASK_SIMILARITY_THRESHOLD ?? 0.6);
+
+// Ceiling on the passages sent to the model, in estimated tokens (see
+// lib/context.ts for the measured estimator and why whole passages are
+// dropped rather than truncated).
+//
+// 6000 BINDS AT THE DEFAULT top_k — measured, not incidental: passages on
+// this corpus average ~870 estimated tokens, so a default 8 runs ~7k, and
+// the cap engaged on 9 of 12 sampled questions, dropping 1-4 passages. It
+// is doing real work in both directions: it bounds `top_k`, which is
+// caller-supplied on a public endpoint, AND it cut prompt tokens 27% on a
+// same-model A/B (6 questions, capped vs effectively uncapped) with no
+// change in verdict — the one refusal in that sample refused either way.
+// Recall cost beyond that sample is NOT measured; raise it toward 8000 if
+// answers start looking thin. COSTS.md has the numbers and the method.
+const MAX_CONTEXT_TOKENS = Number(process.env.ASK_MAX_CONTEXT_TOKENS ?? 6000);
 
 const REFUSAL = "not found in the covered filings";
 
@@ -236,9 +253,10 @@ export async function POST(req: NextRequest) {
   // Pre-flight (embedding + retrieval) happens before the stream, so these
   // failures can still be honest HTTP errors rather than in-band events.
   let queryVector: number[];
+  let embedCached = false;
   const embedTimer = stopwatch();
   try {
-    [queryVector] = await embeddings.embed([question]);
+    ({ vector: queryVector, cached: embedCached } = await embedQuery(embeddings, question));
   } catch (err) {
     log.error("ask.embed_failed", { ...fields, provider: embeddings.name, embed_ms: embedTimer(), err });
     const message = err instanceof Error ? err.message : String(err);
@@ -264,6 +282,21 @@ export async function POST(req: NextRequest) {
   }
   const retrieve_ms = retrieveTimer();
 
+  // Cap BEFORE anything else reads `chunks`: the `sources` event and the
+  // model's context must be the same list, or the [n] citation markers
+  // resolve to the wrong passage in the UI.
+  const capped = capContext(chunks, MAX_CONTEXT_TOKENS);
+  if (capped.dropped > 0) {
+    log.info("ask.context_capped", {
+      ...fields,
+      kept: capped.kept.length,
+      dropped: capped.dropped,
+      context_tokens: capped.tokens,
+      budget: MAX_CONTEXT_TOKENS,
+    });
+  }
+  chunks = capped.kept;
+
   // maxScore is the top-1 cosine similarity (vector channel), not the fused
   // score of chunks[0] — see lib/retrieval.ts.
   const refused = chunks.length === 0 || maxScore < SIMILARITY_THRESHOLD;
@@ -283,7 +316,13 @@ export async function POST(req: NextRequest) {
       // One `ask.complete` line per request, whatever the outcome — the
       // per-stage timings are what make a slow or failing deploy diagnosable
       // from logs alone (embed vs. retrieve vs. generate).
-      const complete = (outcome: string, extra: Record<string, unknown> = {}) =>
+      // Every terminal line carries what the question COST as well as what it
+      // did: the provider's own token counts where it reported them (the
+      // authority — a thinking model bills tokens no prompt inspection can
+      // see), the estimated context size either way, and whether the
+      // embedding call was skipped. COSTS.md is derived from these fields.
+      const complete = (outcome: string, extra: Record<string, unknown> = {}) => {
+        const usage = generation.lastUsage();
         log.info("ask.complete", {
           ...fields,
           outcome,
@@ -291,12 +330,18 @@ export async function POST(req: NextRequest) {
           threshold: SIMILARITY_THRESHOLD,
           sources: chunks.length,
           answer_chars: answer.length,
+          context_tokens: capped.tokens,
+          context_dropped: capped.dropped,
+          embed_cached: embedCached,
+          query_cache: queryCacheStats(),
+          usage,
           embed_ms,
           retrieve_ms,
           generate_ms: generateTimer(),
           total_ms: total(),
           ...extra,
         });
+      };
 
       try {
         // Refusal shows no sources — "not found in the covered filings"
@@ -311,7 +356,7 @@ export async function POST(req: NextRequest) {
 
         if (refused) {
           emit({ type: "delta", text: REFUSAL });
-          emit({ type: "done", refused: true });
+          emit({ type: "done", refused: true, usage: null });
           complete("refused_threshold");
           controller.close();
           return;
@@ -387,7 +432,7 @@ export async function POST(req: NextRequest) {
         // answer (an untagged refusal, or ungrounded text) — `done` says
         // refused and the UI renders it so.
         const modelRefused = refusing || !/\[\d+/.test(answer);
-        emit({ type: "done", refused: modelRefused });
+        emit({ type: "done", refused: modelRefused, usage: generation.lastUsage() });
         complete(modelRefused ? "refused_model" : "answered");
         controller.close();
       } catch (err) {
@@ -399,14 +444,14 @@ export async function POST(req: NextRequest) {
           // contradicting what's already on screen.
           log.error("ask.generation_interrupted", { ...fields, answer_chars: answer.length, err });
           emit({ type: "delta", text: "\n\n_(The answer was cut off — generation was interrupted.)_" });
-          emit({ type: "done", refused: false });
+          emit({ type: "done", refused: false, usage: generation.lastUsage() });
           complete("interrupted");
         } else {
           // Nothing generated at all — every provider failed / was exhausted.
           // Degrade to the cited passages we already retrieved.
           log.error("ask.generation_failed", { ...fields, err });
           emit({ type: "delta", text: buildExtractiveAnswer(chunks) });
-          emit({ type: "done", refused: false });
+          emit({ type: "done", refused: false, usage: null });
           complete("extractive");
         }
         controller.close();
