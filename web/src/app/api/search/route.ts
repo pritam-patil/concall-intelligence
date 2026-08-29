@@ -3,6 +3,7 @@ import { getEmbeddingsProvider } from "@/lib/providers/embeddings";
 import { getServiceRoleClient } from "@/lib/supabase";
 import { MAX_QUESTION_CHARS, checkRateLimit, clientIp, ipHash, rateLimitMessage } from "@/lib/guard";
 import { retrieveForAsk } from "@/lib/retrieval";
+import { embedQuery } from "@/lib/querycache";
 import { createLogger, requestId, stopwatch } from "@/lib/log";
 
 /**
@@ -105,9 +106,10 @@ export async function POST(req: NextRequest) {
   // instead of Next.js's default unhandled-exception response, which has
   // no body a JSON API caller can parse.
   let queryVector: number[];
+  let embedCached = false;
   const embedTimer = stopwatch();
   try {
-    [queryVector] = await embeddings.embed([query]);
+    ({ vector: queryVector, cached: embedCached } = await embedQuery(embeddings, query));
   } catch (err) {
     log.error("search.embed_failed", { ...fields, provider: embeddings.name, embed_ms: embedTimer(), err });
     const message = err instanceof Error ? err.message : String(err);
@@ -130,6 +132,7 @@ export async function POST(req: NextRequest) {
         results: r.chunks.length,
         max_score: r.maxScore,
         embed_ms,
+        embed_cached: embedCached,
         total_ms: total(),
       });
       return NextResponse.json({
@@ -140,7 +143,7 @@ export async function POST(req: NextRequest) {
         results: r.chunks,
       });
     } catch (err) {
-      log.error("search.retrieval_failed", { ...fields, embed_ms, total_ms: total(), err });
+      log.error("search.retrieval_failed", { ...fields, embed_ms, embed_cached: embedCached, total_ms: total(), err });
       const message = err instanceof Error ? err.message : String(err);
       return NextResponse.json({ error: message }, { status: 500 });
     }
@@ -166,7 +169,7 @@ export async function POST(req: NextRequest) {
         });
 
   if (error) {
-    log.error("search.retrieval_failed", { ...fields, embed_ms, total_ms: total(), err: new Error(error.message) });
+    log.error("search.retrieval_failed", { ...fields, embed_ms, embed_cached: embedCached, total_ms: total(), err: new Error(error.message) });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -175,6 +178,7 @@ export async function POST(req: NextRequest) {
     top_k: matchCount,
     results: Array.isArray(data) ? data.length : null,
     embed_ms,
+        embed_cached: embedCached,
     total_ms: total(),
   });
   return NextResponse.json({ query, mode, results: data });
