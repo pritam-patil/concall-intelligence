@@ -24,6 +24,8 @@ export type RetrievedChunk = {
   symbol: string;
   doc_type: string;
   period: string | null;
+  /** ISO date NSE published the filing; dates a passage whose period is null. */
+  filed_at: string | null;
   page: number | null;
   source_url: string;
   /** RRF fused score (rank-based; only meaningful for ordering). */

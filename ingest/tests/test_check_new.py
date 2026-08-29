@@ -62,9 +62,25 @@ def test_row_to_doc_builds_seed_shaped_dict():
            "seq_id": "106702876"}
     doc = check_new.row_to_doc(row, "concall")
     assert doc == {
-        "symbol": "RELIANCE", "doc_type": "concall", "period": None,
+        "symbol": "RELIANCE", "doc_type": "concall", "period": None, "filing_text": "",
         "source_url": "https://nsearchives.nseindia.com/x.pdf", "nse_seq_id": 106702876,
     }
+
+
+def test_row_to_doc_carries_the_announcement_prose_for_period_derivation():
+    # The prose is the only place an EXPLICIT period is ever stated; it is
+    # passed through so download.dating_for can prefer it over the filing
+    # date. See ingest/period.py.
+    row = {
+        "symbol": "RELIANCE",
+        "attchmntFile": "https://nsearchives.nseindia.com/x.pdf",
+        "seq_id": "1",
+        "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+        "attchmntText": "Transcript ... for the quarter ended June 30, 2026, at the analyst meet",
+    }
+    doc = check_new.row_to_doc(row, "concall")
+    assert "quarter ended June 30, 2026" in doc["filing_text"]
+    assert doc["filing_text"].startswith("Analysts/Institutional")
 
 
 def test_row_to_doc_none_without_attachment():

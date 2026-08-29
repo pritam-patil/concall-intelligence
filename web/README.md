@@ -56,8 +56,8 @@ chunks with their source metadata. No generation step — that's `/api/ask`.
 }
 // Response
 { "query": "...", "mode": "hybrid", "results": [
-  { "content": "...", "symbol": "TCS", "doc_type": "concall", "period": null,
-    "page": 6, "source_url": "https://...", "score": 0.0164,
+  { "content": "...", "symbol": "TCS", "doc_type": "concall", "period": "Q1 FY27",
+    "filed_at": "2026-07-15", "page": 6, "source_url": "https://...", "score": 0.0164,
     "vector_rank": 3, "text_rank": 1 }
 ] }
 ```

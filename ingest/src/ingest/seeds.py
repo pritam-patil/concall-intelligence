@@ -13,13 +13,21 @@ written from) — and left None for annual_report entries: the
 /api/annual-reports feed carries no seq_id at all (SOURCES.md §3, and the
 nse_seq_id column comment in the schema migration).
 
-period is left None for concall entries: NSE's own metadata for these rows
-is free text ("...for the quarter ended June 30, 2026" for RELIANCE, but
-just "...has informed the Exchange about Transcript" for TCS/HDFCBANK/INFY —
-see SOURCES.md §2). Reliably parsing a quarter label out of that is not the
-kind of thing to guess at for some rows and not others. Annual reports carry
-a real structured period (fromYr/toYr) straight from the API, so those get
-"FY2025-26".
+period is left None for concall entries HERE, and derived at insert time by
+download.dating_for / ingest.period instead. NSE's own metadata for these
+rows is free text ("...for the quarter ended June 30, 2026" for RELIANCE,
+but just "...has informed the Exchange about Transcript" for
+TCS/HDFCBANK/INFY — see SOURCES.md §2), and parsing a quarter label out of
+THAT is indeed not the kind of thing to guess at for some rows and not
+others. The derivation does not try: it reads an explicit period where one
+exists and otherwise uses the filing date NSE stamps into every archived
+filename, which every row has — so the rows are dated uniformly, by one
+rule, with `filed_at` recorded next to the result. See ingest/period.py for
+why leaving these null turned out to be worse than dating them: an undated
+passage is one /api/ask cannot answer a fiscal-year question from.
+
+Annual reports carry a real structured period (fromYr/toYr) straight from
+the API, so those keep "FY2025-26" and the derivation never touches them.
 """
 
 from __future__ import annotations
